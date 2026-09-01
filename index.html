@@ -5,7 +5,6 @@
     <title>Telemetría Calidad del Agua</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.6.1/justgage.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -21,11 +20,7 @@
             --text-muted: #8892b0;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -35,7 +30,6 @@
             overflow-x: hidden;
         }
 
-        /* Header Adaptativo */
         header {
             display: flex;
             flex-wrap: wrap;
@@ -68,8 +62,7 @@
         }
 
         .dot {
-            width: 8px;
-            height: 8px;
+            width: 8px; height: 8px;
             border-radius: 50%;
             background-color: var(--bad-color);
             box-shadow: 0 0 6px var(--bad-color);
@@ -92,42 +85,6 @@
 
         .btn-action:hover { background: #2e3a59; }
 
-        /* Panel Configuración */
-        .config-box {
-            background: var(--panel-bg);
-            border: 1px solid #2e3a59;
-            border-radius: 12px;
-            padding: 15px;
-            max-width: 1300px;
-            margin: 0 auto 20px auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-        }
-
-        .config-box.hidden { display: none; }
-
-        .config-box input {
-            background: #0d1322;
-            border: 1px solid #3b486b;
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 6px;
-            outline: none;
-            width: 100%;
-        }
-
-        .btn-connect {
-            background: #00e5ff;
-            color: #000;
-            border: none;
-            font-weight: bold;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        /* Layout Grid Principal */
         .main-layout {
             display: grid;
             grid-template-columns: 1fr;
@@ -137,9 +94,7 @@
         }
 
         @media (min-width: 992px) {
-            .main-layout {
-                grid-template-columns: 3fr 1fr;
-            }
+            .main-layout { grid-template-columns: 3fr 1fr; }
         }
 
         .left-column {
@@ -150,7 +105,6 @@
             min-width: 0;
         }
 
-        /* CONFIGURACIÓN DE GAUGES: 1 Por fila en móvil / 3 en escritorio */
         .gauges-grid {
             display: grid;
             grid-template-columns: 1fr;
@@ -159,9 +113,7 @@
         }
 
         @media (min-width: 600px) {
-            .gauges-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
+            .gauges-grid { grid-template-columns: repeat(3, 1fr); }
         }
 
         .card {
@@ -176,7 +128,6 @@
             width: 100%;
         }
 
-        /* Etiqueta del Parámetro / Label Superior */
         .gauge-title {
             font-size: 1.1em;
             font-weight: 600;
@@ -186,7 +137,6 @@
             letter-spacing: 0.8px;
         }
 
-        /* Contenedor ampliado para gauges en móvil */
         .gauge-wrapper {
             width: 100%;
             max-width: 260px;
@@ -209,7 +159,6 @@
         .ok { background: rgba(0, 255, 136, 0.15); color: var(--ok-color); border: 1px solid var(--ok-color); }
         .bad { background: rgba(255, 77, 77, 0.15); color: var(--bad-color); border: 1px solid var(--bad-color); }
 
-        /* Contenedor Gráfica Chart.js */
         .chart-card {
             background: var(--card-bg);
             border-radius: 12px;
@@ -221,7 +170,6 @@
             min-width: 0;
         }
 
-        /* Panel Alertas */
         .alerts-panel {
             background: var(--card-bg);
             border: 1px solid #1e2942;
@@ -233,9 +181,7 @@
         }
 
         @media (min-width: 992px) {
-            .alerts-panel {
-                max-height: 100%;
-            }
+            .alerts-panel { max-height: 100%; }
         }
 
         .alerts-header {
@@ -278,23 +224,13 @@
             <button id="btnMute" class="btn-action" onclick="toggleMute()">🔊 Sonido</button>
             <div class="status-indicator">
                 <div id="statusDot" class="dot"></div>
-                <span id="statusText">Off</span>
+                <span id="statusText">Autenticando...</span>
             </div>
-            <button class="btn-action" onclick="toggleConfig()">⚙️</button>
         </div>
     </header>
 
-    <div id="configBox" class="config-box">
-        <input type="text" id="tbHost" placeholder="Host (ej. thingsboard.cloud)">
-        <input type="text" id="tbUser" placeholder="Usuario">
-        <input type="password" id="tbPass" placeholder="Contraseña">
-        <input type="text" id="deviceId" placeholder="Device ID (UUID)">
-        <button class="btn-connect" onclick="initConnection()">Conectar y Guardar</button>
-    </div>
-
     <div class="main-layout">
         <div class="left-column">
-            <!-- Gauges Grid con Labels Visibles -->
             <div class="gauges-grid">
                 <div class="card">
                     <div class="gauge-title">Temperatura</div>
@@ -313,13 +249,11 @@
                 </div>
             </div>
 
-            <!-- Gráfica Histórica -->
             <div class="chart-card">
                 <canvas id="telemetryChart"></canvas>
             </div>
         </div>
 
-        <!-- Registro Alertas -->
         <div class="alerts-panel">
             <div class="alerts-header">
                 <span>⚠️ Registro de Alertas</span>
@@ -334,11 +268,19 @@
     </div>
 
     <script>
+        // CONFIGURACIÓN DE THINGSBOARD
+        const TB_HOST = "thingsboard.cloud";
+        const DEVICE_ID = "0d580f10-a62d-11f1-9b46-e7fbeb690c95";
+        
+        // Coloca tu correo y clave de usuario de ThingsBoard Cloud
+        const TB_USER = "scada-viewer@tuempresa.com";
+        const TB_PASSWORD = "9b46-e7fbeb690c95";
+
         let gaugeTemp, gaugePh, gaugeOxy, telemetryChart;
+        let jwtToken = null;
         let webSocket = null;
         let alertCounter = 0;
         let isMuted = false;
-        let reconnectTimer = null;
         const maxChartPoints = 15;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -362,61 +304,27 @@
             document.getElementById("btnMute").innerText = isMuted ? "🔇 Mute" : "🔊 Sonido";
         }
 
-        window.onload = () => {
-            document.getElementById("tbHost").value = localStorage.getItem("tb_host") || "thingsboard.cloud";
-            document.getElementById("tbUser").value = localStorage.getItem("tb_user") || "";
-            document.getElementById("tbPass").value = localStorage.getItem("tb_pass") || "";
-            document.getElementById("deviceId").value = localStorage.getItem("tb_device") || "";
-
+        window.onload = async () => {
             initGauges();
             initChart();
-
-            if (localStorage.getItem("tb_user") && localStorage.getItem("tb_pass") && localStorage.getItem("tb_device")) {
-                initConnection(true);
-            }
+            await loginAndConnect();
         };
 
         function initGauges() {
             gaugeTemp = new JustGage({
-                id: "gaugeTemp",
-                value: 0,
-                min: 0,
-                max: 50,
-                label: "°C",
-                gaugeColor: "#1e2942",
-                levelColors: ["#00e5ff", "#00ff88", "#ff4d4d"],
-                valueFontColor: "#fff",
-                labelFontColor: "#8892b0",
-                valueMinFontSize: 16,
-                labelMinFontSize: 12
+                id: "gaugeTemp", value: 0, min: 0, max: 50, label: "°C",
+                gaugeColor: "#1e2942", levelColors: ["#00e5ff", "#00ff88", "#ff4d4d"],
+                valueFontColor: "#fff", labelFontColor: "#8892b0"
             });
-            
             gaugePh = new JustGage({
-                id: "gaugePh",
-                value: 0,
-                min: 0,
-                max: 14,
-                label: "pH",
-                gaugeColor: "#1e2942",
-                levelColors: ["#ff4d4d", "#00ff88", "#ff4d4d"],
-                valueFontColor: "#fff",
-                labelFontColor: "#8892b0",
-                valueMinFontSize: 16,
-                labelMinFontSize: 12
+                id: "gaugePh", value: 0, min: 0, max: 14, label: "pH",
+                gaugeColor: "#1e2942", levelColors: ["#ff4d4d", "#00ff88", "#ff4d4d"],
+                valueFontColor: "#fff", labelFontColor: "#8892b0"
             });
-            
             gaugeOxy = new JustGage({
-                id: "gaugeOxy",
-                value: 0,
-                min: 0,
-                max: 12,
-                label: "mg/L",
-                gaugeColor: "#1e2942",
-                levelColors: ["#ff4d4d", "#ffd000", "#00ff88"],
-                valueFontColor: "#fff",
-                labelFontColor: "#8892b0",
-                valueMinFontSize: 16,
-                labelMinFontSize: 12
+                id: "gaugeOxy", value: 0, min: 0, max: 12, label: "mg/L",
+                gaugeColor: "#1e2942", levelColors: ["#ff4d4d", "#ffd000", "#00ff88"],
+                valueFontColor: "#fff", labelFontColor: "#8892b0"
             });
         }
 
@@ -439,63 +347,52 @@
                         x: { ticks: { color: '#8892b0', font: { size: 10 } }, grid: { color: '#1e2942' } },
                         y: { ticks: { color: '#8892b0', font: { size: 10 } }, grid: { color: '#1e2942' } }
                     },
-                    plugins: { 
-                        legend: { labels: { color: '#fff', font: { size: 11 }, boxWidth: 12 } } 
-                    }
+                    plugins: { legend: { labels: { color: '#fff', font: { size: 11 }, boxWidth: 12 } } }
                 }
             });
         }
 
-        function toggleConfig() {
-            document.getElementById("configBox").classList.toggle("hidden");
-        }
-
-        async function initConnection() {
-            const host = document.getElementById("tbHost").value.trim();
-            const username = document.getElementById("tbUser").value.trim();
-            const password = document.getElementById("tbPass").value.trim();
-            const deviceId = document.getElementById("deviceId").value.trim();
-
-            if (!username || !password || !deviceId) return alert("Completa todos los campos.");
-
-            localStorage.setItem("tb_host", host);
-            localStorage.setItem("tb_user", username);
-            localStorage.setItem("tb_pass", password);
-            localStorage.setItem("tb_device", deviceId);
-
-            updateStatus(false, "Wait...");
-
+        async function loginAndConnect() {
             try {
-                const loginResponse = await fetch(`https://${host}/api/auth/login`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username, password })
+                // 1. Obtener Token JWT mediante login REST (Soporta CORS nativamente)
+                const loginRes = await fetch(`https://${TB_HOST}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: TB_USER, password: TB_PASSWORD })
                 });
 
-                if (!loginResponse.ok) throw new Error("Auth error");
+                if (!loginRes.ok) throw new Error("Credenciales inválidas o error de autenticación");
 
-                const loginData = await loginResponse.json();
-                connectWebSocket(host, loginData.token, deviceId);
-                document.getElementById("configBox").classList.add("hidden");
+                const loginData = await loginRes.json();
+                jwtToken = loginData.token;
+
+                updateStatus(true, "Conectando WebSocket...");
+                connectWebSocket(jwtToken);
 
             } catch (err) {
-                updateStatus(false, "Error");
-                document.getElementById("configBox").classList.remove("hidden");
+                updateStatus(false, "Error Login");
+                console.error("Error en login:", err);
             }
         }
 
-        function connectWebSocket(host, token, deviceId) {
-            if (reconnectTimer) clearTimeout(reconnectTimer);
-
-            const wsUrl = `wss://${host}/api/ws/plugins/telemetry?token=${token}`;
-            if (webSocket) webSocket.close();
-
+        function connectWebSocket(token) {
+            // 2. Conexión WebSocket autenticada por Token JWT con soporte CORS
+            const wsUrl = `wss://${TB_HOST}/api/ws/plugins/telemetry?token=${token}`;
             webSocket = new WebSocket(wsUrl);
 
             webSocket.onopen = () => {
-                updateStatus(true, "Live");
+                updateStatus(true, "Live (WS JWT)");
+                
+                // Suscribirse a la telemetría del dispositivo
                 const subCmd = {
-                    tsSubCmds: [{ entityType: "DEVICE", entityId: deviceId, scope: "LATEST_TELEMETRY", cmdId: 1 }]
+                    tsSubCmds: [
+                        {
+                            entityType: "DEVICE",
+                            entityId: DEVICE_ID,
+                            scope: "LATEST_TELEMETRY",
+                            cmdId: 1
+                        }
+                    ]
                 };
                 webSocket.send(JSON.stringify(subCmd));
             };
@@ -506,11 +403,11 @@
             };
 
             webSocket.onclose = () => {
-                updateStatus(false, "Reconnecting...");
-                reconnectTimer = setTimeout(() => initConnection(), 5000);
+                updateStatus(false, "Reconectando...");
+                setTimeout(loginAndConnect, 5000);
             };
 
-            webSocket.onerror = () => updateStatus(false, "Err WS");
+            webSocket.onerror = (err) => console.error("Error WebSocket:", err);
         }
 
         function updateStatus(isOnline, text) {
@@ -540,7 +437,9 @@
                 checkLimits("Oxy", "O2", oxyVal, 5.0, 15.0, "mg/L");
             }
 
-            updateChart(timeStr, tempVal, phVal, oxyVal);
+            if (tempVal || phVal || oxyVal) {
+                updateChart(timeStr, tempVal, phVal, oxyVal);
+            }
         }
 
         function updateChart(time, temp, ph, oxy) {
@@ -570,27 +469,25 @@
         }
 
         function pushAlert(message) {
-    const list = document.getElementById("alertsList");
-    const count = document.getElementById("alertCount");
+            const list = document.getElementById("alertsList");
+            const count = document.getElementById("alertCount");
 
-    if (alertCounter === 0) list.innerHTML = "";
-    alertCounter++;
-    count.innerText = Math.min(alertCounter, 10);
+            if (alertCounter === 0) list.innerHTML = "";
+            alertCounter++;
+            count.innerText = Math.min(alertCounter, 10);
 
-    const time = new Date().toLocaleTimeString();
-    const item = document.createElement("div");
-    item.className = "alert-item";
-    item.innerHTML = `<div><strong>${message}</strong></div><div class="timestamp">${time}</div>`;
+            const time = new Date().toLocaleTimeString();
+            const item = document.createElement("div");
+            item.className = "alert-item";
+            item.innerHTML = `<div><strong>${message}</strong></div><div class="timestamp">${time}</div>`;
 
-    // Insertar al inicio
-    list.prepend(item);
+            list.prepend(item);
 
-    // 👇 Mantener solo las últimas 10 alertas
-    const items = list.querySelectorAll(".alert-item");
-    if (items.length > 10) {
-        items[items.length - 1].remove(); // elimina la más antigua
-    }
-}
+            const items = list.querySelectorAll(".alert-item");
+            if (items.length > 10) {
+                items[items.length - 1].remove();
+            }
+        }
     </script>
 </body>
 </html>
