@@ -156,8 +156,11 @@
             max-width: 260px;
         }
 
+        /* Estilos de los estados */
         .ok { background: rgba(0, 255, 136, 0.15); color: var(--ok-color); border: 1px solid var(--ok-color); }
+        .warn { background: rgba(255, 208, 0, 0.15); color: var(--warn-color); border: 1px solid var(--warn-color); }
         .bad { background: rgba(255, 77, 77, 0.15); color: var(--bad-color); border: 1px solid var(--bad-color); }
+        .offline { background: rgba(136, 146, 176, 0.15); color: var(--text-muted); border: 1px solid var(--text-muted); }
 
         .chart-card {
             background: var(--card-bg);
@@ -209,6 +212,14 @@
             font-size: 0.8em;
         }
 
+        .alert-item.warn-alert {
+            border-left-color: var(--warn-color);
+        }
+
+        .alert-item.offline-alert {
+            border-left-color: var(--text-muted);
+        }
+
         .alert-item .timestamp {
             font-size: 0.7em;
             color: var(--text-muted);
@@ -235,17 +246,17 @@
                 <div class="card">
                     <div class="gauge-title">Temperatura</div>
                     <div class="gauge-wrapper"><div id="gaugeTemp"></div></div>
-                    <div id="statusTemp" class="status-badge ok">Sin Datos</div>
+                    <div id="statusTemp" class="status-badge offline">Sin Datos</div>
                 </div>
                 <div class="card">
                     <div class="gauge-title" style="color: #ffd000;">pH</div>
                     <div class="gauge-wrapper"><div id="gaugePh"></div></div>
-                    <div id="statusPh" class="status-badge ok">Sin Datos</div>
+                    <div id="statusPh" class="status-badge offline">Sin Datos</div>
                 </div>
                 <div class="card">
                     <div class="gauge-title" style="color: #00ff88;">Oxígeno Disuelto</div>
                     <div class="gauge-wrapper"><div id="gaugeOxy"></div></div>
-                    <div id="statusOxy" class="status-badge ok">Sin Datos</div>
+                    <div id="statusOxy" class="status-badge offline">Sin Datos</div>
                 </div>
             </div>
 
@@ -268,7 +279,6 @@
     </div>
 
     <script>
-      
         const TB_HOST = "thingsboard.cloud";
         const DEVICE_ID = "0d580f10-a62d-11f1-9b46-e7fbeb690c95";
         
@@ -334,9 +344,9 @@
                 data: {
                     labels: [],
                     datasets: [
-                        { label: 'Temp', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 2 },
+                        { label: 'Temp (°C)', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 2 },
                         { label: 'pH', borderColor: '#ffd000', data: [], tension: 0.3, pointRadius: 2 },
-                        { label: 'O2', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 2 }
+                        { label: 'O2 (mg/L)', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 2 }
                     ]
                 },
                 options: {
@@ -353,7 +363,6 @@
 
         async function loginAndConnect() {
             try {
-                // 1. Obtener Token JWT mediante login REST (Soporta CORS nativamente)
                 const loginRes = await fetch(`https://${TB_HOST}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -375,14 +384,11 @@
         }
 
         function connectWebSocket(token) {
-            // 2. Conexión WebSocket autenticada por Token JWT con soporte CORS
             const wsUrl = `wss://${TB_HOST}/api/ws/plugins/telemetry?token=${token}`;
             webSocket = new WebSocket(wsUrl);
 
             webSocket.onopen = () => {
                 updateStatus(true, "Live (WS JWT)");
-                
-                // Suscribirse a la telemetría del dispositivo
                 const subCmd = {
                     tsSubCmds: [
                         {
@@ -420,24 +426,43 @@
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             let tempVal = null, phVal = null, oxyVal = null;
 
+            // Procesar Temperatura
             if (data.temperature) {
-                tempVal = parseFloat(data.temperature[0][1]).toFixed(1);
-                gaugeTemp.refresh(tempVal);
-                checkLimits("Temp", "Temp", tempVal, 20, 30, "°C");
-            }
-            if (data.ph) {
-                phVal = parseFloat(data.ph[0][1]).toFixed(1);
-                gaugePh.refresh(phVal);
-                checkLimits("Ph", "pH", phVal, 6.5, 8.5, "");
-            }
-            if (data.oxygen) {
-                oxyVal = parseFloat(data.oxygen[0][1]).toFixed(1);
-                gaugeOxy.refresh(oxyVal);
-                checkLimits("Oxy", "O2", oxyVal, 5.0, 15.0, "mg/L");
+                tempVal = parseFloat(data.temperature[0][1]);
+                if (!isNaN(tempVal)) {
+                    gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
+                    // Rango temp: <18 Crítico | 18-20 Warn | 20-28 OK | 28-32 Warn | >32 Crítico
+                    checkLimits("Temp", "Temperatura", tempVal, 18, 20, 28, 32, "°C", -127);
+                }
             }
 
-            if (tempVal || phVal || oxyVal) {
-                updateChart(timeStr, tempVal, phVal, oxyVal);
+            // Procesar pH
+            if (data.ph) {
+                phVal = parseFloat(data.ph[0][1]);
+                if (!isNaN(phVal)) {
+                    gaugePh.refresh(phVal > 0 ? phVal : 0);
+                    // Rango pH: <6.0 Crítico | 6.0-6.5 Warn | 6.5-8.5 OK | 8.5-9.0 Warn | >9.0 Crítico
+                    checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "", -1);
+                }
+            }
+
+            // Procesar Oxígeno
+            if (data.oxygen) {
+                oxyVal = parseFloat(data.oxygen[0][1]);
+                if (!isNaN(oxyVal)) {
+                    gaugeOxy.refresh(oxyVal > 0 ? oxyVal : 0);
+                    // Rango O2: <3.0 Crítico | 3.0-5.0 Warn | 5.0-12.0 OK | 12.0-15.0 Warn
+                    checkLimits("Oxy", "Oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L", -1);
+                }
+            }
+
+            // Actualizar gráfica solo con datos válidos
+            const chartTemp = (tempVal !== null && tempVal !== -127) ? tempVal.toFixed(1) : null;
+            const chartPh = (phVal !== null && phVal >= 0) ? phVal.toFixed(1) : null;
+            const chartOxy = (oxyVal !== null && oxyVal >= 0) ? oxyVal.toFixed(1) : null;
+
+            if (chartTemp || chartPh || chartOxy) {
+                updateChart(timeStr, chartTemp, chartPh, chartOxy);
             }
         }
 
@@ -454,20 +479,39 @@
             telemetryChart.update();
         }
 
-        function checkLimits(idSuffix, name, val, min, max, unit) {
+        function checkLimits(idSuffix, name, val, minWarn, minOk, maxOk, maxWarn, unit, disconnectedValue) {
             const badge = document.getElementById(`status${idSuffix}`);
-            if (val >= min && val <= max) {
-                badge.innerText = `OK (${val} ${unit})`;
+            
+            // 1. Validar si el sensor reporta código de desconexión (ej. -127)
+            if (val === disconnectedValue || val === null || isNaN(val)) {
+                badge.innerText = "DESCONECTADO";
+                badge.className = "status-badge offline";
+                pushAlert(`⚠️ Sensor de ${name} Desconectado`, 'offline');
+                return;
+            }
+
+            const formattedVal = val.toFixed(1);
+
+            // 2. Evaluado de Rangos
+            if (val >= minOk && val <= maxOk) {
+                // Estado Normal
+                badge.innerText = `OK (${formattedVal} ${unit})`;
                 badge.className = "status-badge ok";
+            } else if ((val >= minWarn && val < minOk) || (val > maxOk && val <= maxWarn)) {
+                // Estado Advertencia
+                badge.innerText = `WARN (${formattedVal} ${unit})`;
+                badge.className = "status-badge warn";
+                pushAlert(`Advertencia en ${name}: ${formattedVal} ${unit}`, 'warn');
             } else {
-                badge.innerText = `Alert (${val} ${unit})`;
+                // Estado Crítico
+                badge.innerText = `CRÍTICO (${formattedVal} ${unit})`;
                 badge.className = "status-badge bad";
-                pushAlert(`${name}: ${val} ${unit}`);
+                pushAlert(`ALERTA CRÍTICA en ${name}: ${formattedVal} ${unit}`, 'bad');
                 playAlarmSound();
             }
         }
 
-        function pushAlert(message) {
+        function pushAlert(message, type = 'bad') {
             const list = document.getElementById("alertsList");
             const count = document.getElementById("alertCount");
 
@@ -477,7 +521,12 @@
 
             const time = new Date().toLocaleTimeString();
             const item = document.createElement("div");
-            item.className = "alert-item";
+            
+            let alertClass = "alert-item";
+            if (type === 'warn') alertClass += " warn-alert";
+            if (type === 'offline') alertClass += " offline-alert";
+
+            item.className = alertClass;
             item.innerHTML = `<div><strong>${message}</strong></div><div class="timestamp">${time}</div>`;
 
             list.prepend(item);
