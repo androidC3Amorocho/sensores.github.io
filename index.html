@@ -159,6 +159,7 @@
             text-align: center;
             width: 100%;
             max-width: 260px;
+            transition: all 0.3s ease;
         }
 
         /* Estilos de los estados */
@@ -251,17 +252,17 @@
                 <div class="card">
                     <div class="gauge-title">Temperatura</div>
                     <div class="gauge-wrapper"><div id="gaugeTemp"></div></div>
-                    <div id="statusTemp" class="status-badge offline">Sin datos</div>
+                    <div id="statusTemp" class="status-badge offline">DESCONECTADO</div>
                 </div>
                 <div class="card">
                     <div class="gauge-title" style="color: #ffd000;">pH</div>
                     <div class="gauge-wrapper"><div id="gaugePh"></div></div>
-                    <div id="statusPh" class="status-badge offline">Sin datos</div>
+                    <div id="statusPh" class="status-badge offline">DESCONECTADO</div>
                 </div>
                 <div class="card">
                     <div class="gauge-title" style="color: #00ff88;">Oxígeno Disuelto</div>
                     <div class="gauge-wrapper"><div id="gaugeOxy"></div></div>
-                    <div id="statusOxy" class="status-badge offline">Sin datos</div>
+                    <div id="statusOxy" class="status-badge offline">DESCONECTADO</div>
                 </div>
             </div>
 
@@ -299,7 +300,7 @@
 
         // Control de inactividad de datos (Watchdog)
         let dataWatchdogTimer = null;
-        const DATA_TIMEOUT_MS = 20000;
+        const DATA_TIMEOUT_MS = 20000; // 20 segundos sin recibir telemetría limpia el panel
 
         // Estado de salud del sistema global
         const systemHealth = {
@@ -309,7 +310,7 @@
             oxyValid: false
         };
 
-        // Control de estado previo para evitar duplicidad de alertas
+        // Control de estado previo para evitar alertas repetidas
         const previousStates = { Temp: null, Ph: null, Oxy: null };
 
         let audioCtx = null;
@@ -368,9 +369,9 @@
                 data: {
                     labels: [],
                     datasets: [
-                        { label: 'Temperatura (°C)', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 2 },
-                        { label: 'pH', borderColor: '#ffd000', data: [], tension: 0.3, pointRadius: 2 },
-                        { label: 'Oxígeno (mg/L)', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 2 }
+                        { label: 'Temperatura (°C)', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 2, spanGaps: false },
+                        { label: 'pH', borderColor: '#ffd000', data: [], tension: 0.3, pointRadius: 2, spanGaps: false },
+                        { label: 'Oxígeno (mg/L)', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 2, spanGaps: false }
                     ]
                 },
                 options: {
@@ -403,6 +404,7 @@
 
             } catch (err) {
                 systemHealth.wsConnected = false;
+                clearAllGaugesToOffline();
                 updateStatus('bad', "Error de autenticación");
                 console.error("Error en inicio de sesión:", err);
             }
@@ -414,7 +416,7 @@
 
             webSocket.onopen = () => {
                 systemHealth.wsConnected = true;
-                updateStatus('warning', "Esperando datos...");
+                updateStatus('warning', "Esperando telemetría...");
                 const subCmd = {
                     tsSubCmds: [
                         {
@@ -439,6 +441,7 @@
             webSocket.onclose = () => {
                 systemHealth.wsConnected = false;
                 clearTimeout(dataWatchdogTimer);
+                clearAllGaugesToOffline();
                 updateStatus('bad', "Servidor Desconectado - Reconectando...");
                 setTimeout(loginAndConnect, 5000);
             };
@@ -449,8 +452,37 @@
         function resetDataWatchdog() {
             clearTimeout(dataWatchdogTimer);
             dataWatchdogTimer = setTimeout(() => {
-                updateStatus('warning', "Sin datos recientes");
+                // Al expirar el tiempo de espera, se considera que los sensores fueron apagados
+                clearAllGaugesToOffline();
+                evaluateOverallSystemStatus();
             }, DATA_TIMEOUT_MS);
+        }
+
+        function clearAllGaugesToOffline() {
+            systemHealth.tempValid = false;
+            systemHealth.phValid = false;
+            systemHealth.oxyValid = false;
+
+            // Restablecer lecturas a cero en los Gauges
+            if (gaugeTemp) gaugeTemp.refresh(0);
+            if (gaugePh) gaugePh.refresh(0);
+            if (gaugeOxy) gaugeOxy.refresh(0);
+
+            // Actualizar etiquetas a estado "DESCONECTADO"
+            setSensorBadgeOffline("Temp", "Temperatura");
+            setSensorBadgeOffline("Ph", "pH");
+            setSensorBadgeOffline("Oxy", "Oxígeno");
+        }
+
+        function setSensorBadgeOffline(idSuffix, name) {
+            const badge = document.getElementById(`status${idSuffix}`);
+            badge.innerText = "DESCONECTADO";
+            badge.className = "status-badge offline";
+
+            if (previousStates[idSuffix] !== 'offline') {
+                pushAlert(`⚠️ Sensor de ${name} apagado / sin señal`, 'offline');
+                previousStates[idSuffix] = 'offline';
+            }
         }
 
         function updateStatus(state, text) {
@@ -472,8 +504,11 @@
                 systemHealth.tempValid = (tempVal !== -127 && !isNaN(tempVal) && tempVal !== null);
                 if (systemHealth.tempValid) {
                     gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
+                    checkLimits("Temp", "Temperatura", tempVal, 18, 20, 28, 32, "°C");
+                } else {
+                    gaugeTemp.refresh(0);
+                    setSensorBadgeOffline("Temp", "Temperatura");
                 }
-                checkLimits("Temp", "Temperatura", tempVal, 18, 20, 28, 32, "°C", -127);
             }
 
             // 2. Validar pH
@@ -482,8 +517,11 @@
                 systemHealth.phValid = (phVal >= 0 && !isNaN(phVal) && phVal !== null);
                 if (systemHealth.phValid) {
                     gaugePh.refresh(phVal);
+                    checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "");
+                } else {
+                    gaugePh.refresh(0);
+                    setSensorBadgeOffline("Ph", "pH");
                 }
-                checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "", -1);
             }
 
             // 3. Validar Oxígeno
@@ -492,21 +530,22 @@
                 systemHealth.oxyValid = (oxyVal >= 0 && !isNaN(oxyVal) && oxyVal !== null);
                 if (systemHealth.oxyValid) {
                     gaugeOxy.refresh(oxyVal);
+                    checkLimits("Oxy", "Oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L");
+                } else {
+                    gaugeOxy.refresh(0);
+                    setSensorBadgeOffline("Oxy", "Oxígeno");
                 }
-                checkLimits("Oxy", "Oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L", -1);
             }
 
-            // Evaluamos la salud global para ajustar el punto de la cabecera
+            // Evaluar salud global del sistema
             evaluateOverallSystemStatus();
 
-            // Graficar solo lecturas válidas
-            const chartTemp = systemHealth.tempValid ? tempVal.toFixed(1) : null;
-            const chartPh = systemHealth.phValid ? phVal.toFixed(1) : null;
-            const chartOxy = systemHealth.oxyValid ? oxyVal.toFixed(1) : null;
+            // Graficar valores válidos o null para marcar corte en la gráfica
+            const chartTemp = systemHealth.tempValid ? tempVal : null;
+            const chartPh = systemHealth.phValid ? phVal : null;
+            const chartOxy = systemHealth.oxyValid ? oxyVal : null;
 
-            if (chartTemp !== null || chartPh !== null || chartOxy !== null) {
-                updateChart(timeStr, chartTemp, chartPh, chartOxy);
-            }
+            updateChart(timeStr, chartTemp, chartPh, chartOxy);
         }
 
         function evaluateOverallSystemStatus() {
@@ -519,7 +558,7 @@
             const partialSensorError = !systemHealth.tempValid || !systemHealth.phValid || !systemHealth.oxyValid;
 
             if (allSensorsOffline) {
-                updateStatus('warning', "Sensores Apagados / Sin Lectura");
+                updateStatus('warning', "Sensores Apagados / Sin Datos");
             } else if (partialSensorError) {
                 updateStatus('warning', "Falla Parcial de Sensores");
             } else {
@@ -540,26 +579,11 @@
             telemetryChart.update();
         }
 
-        function checkLimits(idSuffix, name, val, minWarn, minOk, maxOk, maxWarn, unit, disconnectedValue) {
+        function checkLimits(idSuffix, name, val, minWarn, minOk, maxOk, maxWarn, unit) {
             const badge = document.getElementById(`status${idSuffix}`);
             let currentState = 'ok';
-            
-            // Validar desconexión de hardware
-            if (val === disconnectedValue || val === null || isNaN(val)) {
-                badge.innerText = "DESCONECTADO";
-                badge.className = "status-badge offline";
-                currentState = 'offline';
-                
-                if (previousStates[idSuffix] !== currentState) {
-                    pushAlert(`⚠️ Sensor de ${name} desconectado`, 'offline');
-                    previousStates[idSuffix] = currentState;
-                }
-                return;
-            }
-
             const formattedVal = val.toFixed(1);
 
-            // Rangos de operación
             if (val >= minOk && val <= maxOk) {
                 badge.innerText = `OK (${formattedVal} ${unit})`;
                 badge.className = "status-badge ok";
