@@ -73,6 +73,11 @@
             box-shadow: 0 0 6px var(--ok-color);
         }
 
+        .dot.warning {
+            background-color: var(--warn-color);
+            box-shadow: 0 0 6px var(--warn-color);
+        }
+
         .btn-action {
             background: #232d47;
             color: #fff;
@@ -230,7 +235,7 @@
 <body>
 
     <header>
-        <h2>🌊 Telemetría Calidad del Agua</h2>
+        <h2>🌊 Telemetría de Calidad del Agua</h2>
         <div class="header-controls">
             <button id="btnMute" class="btn-action" onclick="toggleMute()">🔊 Sonido</button>
             <div class="status-indicator">
@@ -246,17 +251,17 @@
                 <div class="card">
                     <div class="gauge-title">Temperatura</div>
                     <div class="gauge-wrapper"><div id="gaugeTemp"></div></div>
-                    <div id="statusTemp" class="status-badge offline">Sin Datos</div>
+                    <div id="statusTemp" class="status-badge offline">Sin datos</div>
                 </div>
                 <div class="card">
                     <div class="gauge-title" style="color: #ffd000;">pH</div>
                     <div class="gauge-wrapper"><div id="gaugePh"></div></div>
-                    <div id="statusPh" class="status-badge offline">Sin Datos</div>
+                    <div id="statusPh" class="status-badge offline">Sin datos</div>
                 </div>
                 <div class="card">
                     <div class="gauge-title" style="color: #00ff88;">Oxígeno Disuelto</div>
                     <div class="gauge-wrapper"><div id="gaugeOxy"></div></div>
-                    <div id="statusOxy" class="status-badge offline">Sin Datos</div>
+                    <div id="statusOxy" class="status-badge offline">Sin datos</div>
                 </div>
             </div>
 
@@ -292,9 +297,20 @@
         let isMuted = false;
         const maxChartPoints = 15;
 
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Control de inactividad de datos (Watchdog)
+        let dataWatchdogTimer = null;
+        const DATA_TIMEOUT_MS = 20000; // Si no hay datos en 20 segundos, marcar como sin recepción
+
+        // Control de estado previo para evitar duplicidad de alertas
+        const previousStates = { Temp: null, Ph: null, Oxy: null };
+
+        let audioCtx = null;
+
         function playAlarmSound() {
             if (isMuted) return;
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
             const osc = audioCtx.createOscillator();
@@ -310,7 +326,7 @@
 
         function toggleMute() {
             isMuted = !isMuted;
-            document.getElementById("btnMute").innerText = isMuted ? "🔇 Mute" : "🔊 Sonido";
+            document.getElementById("btnMute").innerText = isMuted ? "🔇 Silenciado" : "🔊 Sonido";
         }
 
         window.onload = async () => {
@@ -344,9 +360,9 @@
                 data: {
                     labels: [],
                     datasets: [
-                        { label: 'Temp (°C)', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 2 },
+                        { label: 'Temperatura (°C)', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 2 },
                         { label: 'pH', borderColor: '#ffd000', data: [], tension: 0.3, pointRadius: 2 },
-                        { label: 'O2 (mg/L)', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 2 }
+                        { label: 'Oxígeno (mg/L)', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 2 }
                     ]
                 },
                 options: {
@@ -374,12 +390,12 @@
                 const loginData = await loginRes.json();
                 jwtToken = loginData.token;
 
-                updateStatus(true, "Conectando WebSocket...");
+                updateStatus('warning', "Conectando al servidor...");
                 connectWebSocket(jwtToken);
 
             } catch (err) {
-                updateStatus(false, "Error Login");
-                console.error("Error en login:", err);
+                updateStatus('bad', "Error de autenticación");
+                console.error("Error en inicio de sesión:", err);
             }
         }
 
@@ -388,7 +404,7 @@
             webSocket = new WebSocket(wsUrl);
 
             webSocket.onopen = () => {
-                updateStatus(true, "Live (WS JWT)");
+                updateStatus('warning', "Esperando datos...");
                 const subCmd = {
                     tsSubCmds: [
                         {
@@ -404,22 +420,36 @@
 
             webSocket.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
-                if (msg.data) processTelemetry(msg.data);
+                if (msg.data) {
+                    resetDataWatchdog();
+                    processTelemetry(msg.data);
+                }
             };
 
             webSocket.onclose = () => {
-                updateStatus(false, "Reconectando...");
+                clearTimeout(dataWatchdogTimer);
+                updateStatus('bad', "Reconectando...");
                 setTimeout(loginAndConnect, 5000);
             };
 
-            webSocket.onerror = (err) => console.error("Error WebSocket:", err);
+            webSocket.onerror = (err) => console.error("Error en WebSocket:", err);
         }
 
-        function updateStatus(isOnline, text) {
+        function resetDataWatchdog() {
+            updateStatus('online', "En vivo");
+            clearTimeout(dataWatchdogTimer);
+            dataWatchdogTimer = setTimeout(() => {
+                updateStatus('warning', "Sin datos recientes");
+            }, DATA_TIMEOUT_MS);
+        }
+
+        function updateStatus(state, text) {
             const dot = document.getElementById("statusDot");
             document.getElementById("statusText").innerText = text;
-            if (isOnline) dot.classList.add("online");
-            else dot.classList.remove("online");
+            
+            dot.className = "dot"; // Limpiar clases
+            if (state === 'online') dot.classList.add("online");
+            else if (state === 'warning') dot.classList.add("warning");
         }
 
         function processTelemetry(data) {
@@ -431,7 +461,6 @@
                 tempVal = parseFloat(data.temperature[0][1]);
                 if (!isNaN(tempVal)) {
                     gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
-                    // Rango temp: <18 Crítico | 18-20 Warn | 20-28 OK | 28-32 Warn | >32 Crítico
                     checkLimits("Temp", "Temperatura", tempVal, 18, 20, 28, 32, "°C", -127);
                 }
             }
@@ -441,7 +470,6 @@
                 phVal = parseFloat(data.ph[0][1]);
                 if (!isNaN(phVal)) {
                     gaugePh.refresh(phVal > 0 ? phVal : 0);
-                    // Rango pH: <6.0 Crítico | 6.0-6.5 Warn | 6.5-8.5 OK | 8.5-9.0 Warn | >9.0 Crítico
                     checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "", -1);
                 }
             }
@@ -451,7 +479,6 @@
                 oxyVal = parseFloat(data.oxygen[0][1]);
                 if (!isNaN(oxyVal)) {
                     gaugeOxy.refresh(oxyVal > 0 ? oxyVal : 0);
-                    // Rango O2: <3.0 Crítico | 3.0-5.0 Warn | 5.0-12.0 OK | 12.0-15.0 Warn
                     checkLimits("Oxy", "Oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L", -1);
                 }
             }
@@ -481,34 +508,48 @@
 
         function checkLimits(idSuffix, name, val, minWarn, minOk, maxOk, maxWarn, unit, disconnectedValue) {
             const badge = document.getElementById(`status${idSuffix}`);
+            let currentState = 'ok';
             
             // 1. Validar si el sensor reporta código de desconexión (ej. -127)
             if (val === disconnectedValue || val === null || isNaN(val)) {
                 badge.innerText = "DESCONECTADO";
                 badge.className = "status-badge offline";
-                pushAlert(`⚠️ Sensor de ${name} Desconectado`, 'offline');
+                currentState = 'offline';
+                
+                if (previousStates[idSuffix] !== currentState) {
+                    pushAlert(`⚠️ Sensor de ${name} desconectado`, 'offline');
+                    previousStates[idSuffix] = currentState;
+                }
                 return;
             }
 
             const formattedVal = val.toFixed(1);
 
-            // 2. Evaluado de Rangos
+            // 2. Evaluación de Rangos
             if (val >= minOk && val <= maxOk) {
-                // Estado Normal
                 badge.innerText = `OK (${formattedVal} ${unit})`;
                 badge.className = "status-badge ok";
+                currentState = 'ok';
             } else if ((val >= minWarn && val < minOk) || (val > maxOk && val <= maxWarn)) {
-                // Estado Advertencia
-                badge.innerText = `WARN (${formattedVal} ${unit})`;
+                badge.innerText = `ADVERTENCIA (${formattedVal} ${unit})`;
                 badge.className = "status-badge warn";
-                pushAlert(`Advertencia en ${name}: ${formattedVal} ${unit}`, 'warn');
+                currentState = 'warn';
+                
+                if (previousStates[idSuffix] !== currentState) {
+                    pushAlert(`Advertencia en ${name}: ${formattedVal} ${unit}`, 'warn');
+                }
             } else {
-                // Estado Crítico
                 badge.innerText = `CRÍTICO (${formattedVal} ${unit})`;
                 badge.className = "status-badge bad";
-                pushAlert(`ALERTA CRÍTICA en ${name}: ${formattedVal} ${unit}`, 'bad');
-                playAlarmSound();
+                currentState = 'bad';
+                
+                if (previousStates[idSuffix] !== currentState) {
+                    pushAlert(`ALERTA CRÍTICA en ${name}: ${formattedVal} ${unit}`, 'bad');
+                    playAlarmSound();
+                }
             }
+
+            previousStates[idSuffix] = currentState;
         }
 
         function pushAlert(message, type = 'bad') {
