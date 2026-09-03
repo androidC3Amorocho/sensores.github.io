@@ -299,7 +299,15 @@
 
         // Control de inactividad de datos (Watchdog)
         let dataWatchdogTimer = null;
-        const DATA_TIMEOUT_MS = 20000; // Si no hay datos en 20 segundos, marcar como sin recepción
+        const DATA_TIMEOUT_MS = 20000;
+
+        // Estado de salud del sistema global
+        const systemHealth = {
+            wsConnected: false,
+            tempValid: false,
+            phValid: false,
+            oxyValid: false
+        };
 
         // Control de estado previo para evitar duplicidad de alertas
         const previousStates = { Temp: null, Ph: null, Oxy: null };
@@ -394,6 +402,7 @@
                 connectWebSocket(jwtToken);
 
             } catch (err) {
+                systemHealth.wsConnected = false;
                 updateStatus('bad', "Error de autenticación");
                 console.error("Error en inicio de sesión:", err);
             }
@@ -404,6 +413,7 @@
             webSocket = new WebSocket(wsUrl);
 
             webSocket.onopen = () => {
+                systemHealth.wsConnected = true;
                 updateStatus('warning', "Esperando datos...");
                 const subCmd = {
                     tsSubCmds: [
@@ -427,8 +437,9 @@
             };
 
             webSocket.onclose = () => {
+                systemHealth.wsConnected = false;
                 clearTimeout(dataWatchdogTimer);
-                updateStatus('bad', "Reconectando...");
+                updateStatus('bad', "Servidor Desconectado - Reconectando...");
                 setTimeout(loginAndConnect, 5000);
             };
 
@@ -436,7 +447,6 @@
         }
 
         function resetDataWatchdog() {
-            updateStatus('online', "En vivo");
             clearTimeout(dataWatchdogTimer);
             dataWatchdogTimer = setTimeout(() => {
                 updateStatus('warning', "Sin datos recientes");
@@ -447,7 +457,7 @@
             const dot = document.getElementById("statusDot");
             document.getElementById("statusText").innerText = text;
             
-            dot.className = "dot"; // Limpiar clases
+            dot.className = "dot";
             if (state === 'online') dot.classList.add("online");
             else if (state === 'warning') dot.classList.add("warning");
         }
@@ -456,40 +466,64 @@
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             let tempVal = null, phVal = null, oxyVal = null;
 
-            // Procesar Temperatura
+            // 1. Validar Temperatura
             if (data.temperature) {
                 tempVal = parseFloat(data.temperature[0][1]);
-                if (!isNaN(tempVal)) {
+                systemHealth.tempValid = (tempVal !== -127 && !isNaN(tempVal) && tempVal !== null);
+                if (systemHealth.tempValid) {
                     gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
-                    checkLimits("Temp", "Temperatura", tempVal, 18, 20, 28, 32, "°C", -127);
                 }
+                checkLimits("Temp", "Temperatura", tempVal, 18, 20, 28, 32, "°C", -127);
             }
 
-            // Procesar pH
+            // 2. Validar pH
             if (data.ph) {
                 phVal = parseFloat(data.ph[0][1]);
-                if (!isNaN(phVal)) {
-                    gaugePh.refresh(phVal > 0 ? phVal : 0);
-                    checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "", -1);
+                systemHealth.phValid = (phVal >= 0 && !isNaN(phVal) && phVal !== null);
+                if (systemHealth.phValid) {
+                    gaugePh.refresh(phVal);
                 }
+                checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "", -1);
             }
 
-            // Procesar Oxígeno
+            // 3. Validar Oxígeno
             if (data.oxygen) {
                 oxyVal = parseFloat(data.oxygen[0][1]);
-                if (!isNaN(oxyVal)) {
-                    gaugeOxy.refresh(oxyVal > 0 ? oxyVal : 0);
-                    checkLimits("Oxy", "Oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L", -1);
+                systemHealth.oxyValid = (oxyVal >= 0 && !isNaN(oxyVal) && oxyVal !== null);
+                if (systemHealth.oxyValid) {
+                    gaugeOxy.refresh(oxyVal);
                 }
+                checkLimits("Oxy", "Oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L", -1);
             }
 
-            // Actualizar gráfica solo con datos válidos
-            const chartTemp = (tempVal !== null && tempVal !== -127) ? tempVal.toFixed(1) : null;
-            const chartPh = (phVal !== null && phVal >= 0) ? phVal.toFixed(1) : null;
-            const chartOxy = (oxyVal !== null && oxyVal >= 0) ? oxyVal.toFixed(1) : null;
+            // Evaluamos la salud global para ajustar el punto de la cabecera
+            evaluateOverallSystemStatus();
 
-            if (chartTemp || chartPh || chartOxy) {
+            // Graficar solo lecturas válidas
+            const chartTemp = systemHealth.tempValid ? tempVal.toFixed(1) : null;
+            const chartPh = systemHealth.phValid ? phVal.toFixed(1) : null;
+            const chartOxy = systemHealth.oxyValid ? oxyVal.toFixed(1) : null;
+
+            if (chartTemp !== null || chartPh !== null || chartOxy !== null) {
                 updateChart(timeStr, chartTemp, chartPh, chartOxy);
+            }
+        }
+
+        function evaluateOverallSystemStatus() {
+            if (!systemHealth.wsConnected) {
+                updateStatus('bad', "Servidor Desconectado");
+                return;
+            }
+
+            const allSensorsOffline = !systemHealth.tempValid && !systemHealth.phValid && !systemHealth.oxyValid;
+            const partialSensorError = !systemHealth.tempValid || !systemHealth.phValid || !systemHealth.oxyValid;
+
+            if (allSensorsOffline) {
+                updateStatus('warning', "Sensores Apagados / Sin Lectura");
+            } else if (partialSensorError) {
+                updateStatus('warning', "Falla Parcial de Sensores");
+            } else {
+                updateStatus('online', "Sistema en Vivo");
             }
         }
 
@@ -510,7 +544,7 @@
             const badge = document.getElementById(`status${idSuffix}`);
             let currentState = 'ok';
             
-            // 1. Validar si el sensor reporta código de desconexión (ej. -127)
+            // Validar desconexión de hardware
             if (val === disconnectedValue || val === null || isNaN(val)) {
                 badge.innerText = "DESCONECTADO";
                 badge.className = "status-badge offline";
@@ -525,7 +559,7 @@
 
             const formattedVal = val.toFixed(1);
 
-            // 2. Evaluación de Rangos
+            // Rangos de operación
             if (val >= minOk && val <= maxOk) {
                 badge.innerText = `OK (${formattedVal} ${unit})`;
                 badge.className = "status-badge ok";
