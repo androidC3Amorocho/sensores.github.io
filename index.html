@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Telemetría Calidad del Agua</title>
+    <title>Telemetría de calidad del agua</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
@@ -138,7 +138,6 @@
             font-weight: 600;
             color: #00e5ff;
             margin-bottom: 5px;
-            text-transform: uppercase;
             letter-spacing: 0.8px;
         }
 
@@ -155,7 +154,6 @@
             border-radius: 12px;
             font-size: 0.85em;
             font-weight: bold;
-            text-transform: uppercase;
             text-align: center;
             width: 100%;
             max-width: 260px;
@@ -166,7 +164,7 @@
         .ok { background: rgba(0, 255, 136, 0.15); color: var(--ok-color); border: 1px solid var(--ok-color); }
         .warn { background: rgba(255, 208, 0, 0.15); color: var(--warn-color); border: 1px solid var(--warn-color); }
         .bad { background: rgba(255, 77, 77, 0.15); color: var(--bad-color); border: 1px solid var(--bad-color); }
-        .offline { background: rgba(136, 146, 176, 0.15); color: var(--text-muted); border: 1px solid var(--text-muted); }
+        .offline { background: rgba(255, 77, 77, 0.15); color: var(--bad-color); border: 1px solid var(--bad-color); }
 
         .chart-card {
             background: var(--card-bg);
@@ -222,10 +220,6 @@
             border-left-color: var(--warn-color);
         }
 
-        .alert-item.offline-alert {
-            border-left-color: var(--text-muted);
-        }
-
         .alert-item .timestamp {
             font-size: 0.7em;
             color: var(--text-muted);
@@ -236,7 +230,7 @@
 <body>
 
     <header>
-        <h2>🌊 Telemetría de Calidad del Agua</h2>
+        <h2>🌊 Telemetría de calidad del agua</h2>
         <div class="header-controls">
             <button id="btnMute" class="btn-action" onclick="toggleMute()">🔊 Sonido</button>
             <div class="status-indicator">
@@ -252,17 +246,17 @@
                 <div class="card">
                     <div class="gauge-title">Temperatura</div>
                     <div class="gauge-wrapper"><div id="gaugeTemp"></div></div>
-                    <div id="statusTemp" class="status-badge offline">DESCONECTADO</div>
+                    <div id="statusTemp" class="status-badge offline">Desconectado</div>
                 </div>
                 <div class="card">
                     <div class="gauge-title" style="color: #ffd000;">pH</div>
                     <div class="gauge-wrapper"><div id="gaugePh"></div></div>
-                    <div id="statusPh" class="status-badge offline">DESCONECTADO</div>
+                    <div id="statusPh" class="status-badge offline">Desconectado</div>
                 </div>
                 <div class="card">
-                    <div class="gauge-title" style="color: #00ff88;">Oxígeno Disuelto</div>
+                    <div class="gauge-title" style="color: #00ff88;">Oxígeno disuelto</div>
                     <div class="gauge-wrapper"><div id="gaugeOxy"></div></div>
-                    <div id="statusOxy" class="status-badge offline">DESCONECTADO</div>
+                    <div id="statusOxy" class="status-badge offline">Desconectado</div>
                 </div>
             </div>
 
@@ -273,7 +267,7 @@
 
         <div class="alerts-panel">
             <div class="alerts-header">
-                <span>⚠️ Registro de Alertas</span>
+                <span>⚠️ Registro de alertas</span>
                 <small id="alertCount">0</small>
             </div>
             <div id="alertsList" class="alerts-list">
@@ -298,11 +292,9 @@
         let isMuted = false;
         const maxChartPoints = 15;
 
-        // Control de inactividad de datos (Watchdog)
         let dataWatchdogTimer = null;
-        const DATA_TIMEOUT_MS = 20000; // 20 segundos sin recibir telemetría limpia el panel
+        const DATA_TIMEOUT_MS = 20000;
 
-        // Estado de salud del sistema global
         const systemHealth = {
             wsConnected: false,
             tempValid: false,
@@ -310,7 +302,6 @@
             oxyValid: false
         };
 
-        // Control de estado previo para evitar alertas repetidas
         const previousStates = { Temp: null, Ph: null, Oxy: null };
 
         let audioCtx = null;
@@ -442,7 +433,7 @@
                 systemHealth.wsConnected = false;
                 clearTimeout(dataWatchdogTimer);
                 clearAllGaugesToOffline();
-                updateStatus('bad', "Servidor Desconectado - Reconectando...");
+                updateStatus('bad', "Servidor desconectado - reconectando...");
                 setTimeout(loginAndConnect, 5000);
             };
 
@@ -452,7 +443,6 @@
         function resetDataWatchdog() {
             clearTimeout(dataWatchdogTimer);
             dataWatchdogTimer = setTimeout(() => {
-                // Al expirar el tiempo de espera, se considera que los sensores fueron apagados
                 clearAllGaugesToOffline();
                 evaluateOverallSystemStatus();
             }, DATA_TIMEOUT_MS);
@@ -463,24 +453,23 @@
             systemHealth.phValid = false;
             systemHealth.oxyValid = false;
 
-            // Restablecer lecturas a cero en los Gauges
             if (gaugeTemp) gaugeTemp.refresh(0);
             if (gaugePh) gaugePh.refresh(0);
             if (gaugeOxy) gaugeOxy.refresh(0);
 
-            // Actualizar etiquetas a estado "DESCONECTADO"
-            setSensorBadgeOffline("Temp", "Temperatura");
+            setSensorBadgeOffline("Temp", "temperatura");
             setSensorBadgeOffline("Ph", "pH");
-            setSensorBadgeOffline("Oxy", "Oxígeno");
+            setSensorBadgeOffline("Oxy", "oxígeno");
         }
 
         function setSensorBadgeOffline(idSuffix, name) {
             const badge = document.getElementById(`status${idSuffix}`);
-            badge.innerText = "DESCONECTADO";
+            badge.innerText = "Desconectado";
             badge.className = "status-badge offline";
 
             if (previousStates[idSuffix] !== 'offline') {
-                pushAlert(`⚠️ Sensor de ${name} apagado / sin señal`, 'offline');
+                pushAlert(`Sensor de ${name} apagado o sin señal`, 'bad');
+                playAlarmSound();
                 previousStates[idSuffix] = 'offline';
             }
         }
@@ -498,20 +487,18 @@
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             let tempVal = null, phVal = null, oxyVal = null;
 
-            // 1. Validar Temperatura
             if (data.temperature) {
                 tempVal = parseFloat(data.temperature[0][1]);
                 systemHealth.tempValid = (tempVal !== -127 && !isNaN(tempVal) && tempVal !== null);
                 if (systemHealth.tempValid) {
                     gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
-                    checkLimits("Temp", "Temperatura", tempVal, 18, 20, 28, 32, "°C");
+                    checkLimits("Temp", "temperatura", tempVal, 18, 20, 28, 32, "°C");
                 } else {
                     gaugeTemp.refresh(0);
-                    setSensorBadgeOffline("Temp", "Temperatura");
+                    setSensorBadgeOffline("Temp", "temperatura");
                 }
             }
 
-            // 2. Validar pH
             if (data.ph) {
                 phVal = parseFloat(data.ph[0][1]);
                 systemHealth.phValid = (phVal >= 0 && !isNaN(phVal) && phVal !== null);
@@ -524,23 +511,20 @@
                 }
             }
 
-            // 3. Validar Oxígeno
             if (data.oxygen) {
                 oxyVal = parseFloat(data.oxygen[0][1]);
                 systemHealth.oxyValid = (oxyVal >= 0 && !isNaN(oxyVal) && oxyVal !== null);
                 if (systemHealth.oxyValid) {
                     gaugeOxy.refresh(oxyVal);
-                    checkLimits("Oxy", "Oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L");
+                    checkLimits("Oxy", "oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L");
                 } else {
                     gaugeOxy.refresh(0);
-                    setSensorBadgeOffline("Oxy", "Oxígeno");
+                    setSensorBadgeOffline("Oxy", "oxígeno");
                 }
             }
 
-            // Evaluar salud global del sistema
             evaluateOverallSystemStatus();
 
-            // Graficar valores válidos o null para marcar corte en la gráfica
             const chartTemp = systemHealth.tempValid ? tempVal : null;
             const chartPh = systemHealth.phValid ? phVal : null;
             const chartOxy = systemHealth.oxyValid ? oxyVal : null;
@@ -550,7 +534,7 @@
 
         function evaluateOverallSystemStatus() {
             if (!systemHealth.wsConnected) {
-                updateStatus('bad', "Servidor Desconectado");
+                updateStatus('bad', "Servidor desconectado");
                 return;
             }
 
@@ -558,11 +542,11 @@
             const partialSensorError = !systemHealth.tempValid || !systemHealth.phValid || !systemHealth.oxyValid;
 
             if (allSensorsOffline) {
-                updateStatus('warning', "Sensores Apagados / Sin Datos");
+                updateStatus('warning', "Sensores apagados o sin datos");
             } else if (partialSensorError) {
-                updateStatus('warning', "Falla Parcial de Sensores");
+                updateStatus('warning', "Falla parcial de sensores");
             } else {
-                updateStatus('online', "Sistema en Vivo");
+                updateStatus('online', "Sistema en línea");
             }
         }
 
@@ -585,24 +569,24 @@
             const formattedVal = val.toFixed(1);
 
             if (val >= minOk && val <= maxOk) {
-                badge.innerText = `OK (${formattedVal} ${unit})`;
+                badge.innerText = `OK (${formattedVal} ${unit})`.trim();
                 badge.className = "status-badge ok";
                 currentState = 'ok';
             } else if ((val >= minWarn && val < minOk) || (val > maxOk && val <= maxWarn)) {
-                badge.innerText = `ADVERTENCIA (${formattedVal} ${unit})`;
+                badge.innerText = `Advertencia (${formattedVal} ${unit})`.trim();
                 badge.className = "status-badge warn";
                 currentState = 'warn';
                 
                 if (previousStates[idSuffix] !== currentState) {
-                    pushAlert(`Advertencia en ${name}: ${formattedVal} ${unit}`, 'warn');
+                    pushAlert(`Advertencia en ${name}: ${formattedVal} ${unit}`.trim(), 'warn');
                 }
             } else {
-                badge.innerText = `CRÍTICO (${formattedVal} ${unit})`;
+                badge.innerText = `Crítico (${formattedVal} ${unit})`.trim();
                 badge.className = "status-badge bad";
                 currentState = 'bad';
                 
                 if (previousStates[idSuffix] !== currentState) {
-                    pushAlert(`ALERTA CRÍTICA en ${name}: ${formattedVal} ${unit}`, 'bad');
+                    pushAlert(`Alerta crítica en ${name}: ${formattedVal} ${unit}`.trim(), 'bad');
                     playAlarmSound();
                 }
             }
@@ -623,7 +607,6 @@
             
             let alertClass = "alert-item";
             if (type === 'warn') alertClass += " warn-alert";
-            if (type === 'offline') alertClass += " offline-alert";
 
             item.className = alertClass;
             item.innerHTML = `<div><strong>${message}</strong></div><div class="timestamp">${time}</div>`;
