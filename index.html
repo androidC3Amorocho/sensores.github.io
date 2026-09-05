@@ -1198,45 +1198,79 @@
         // ============================================================
         //  ALERTAS
         // ============================================================
-        function pushAlert(message, type = 'bad') {
-            const list = document.getElementById("alertsList");
-            const badge = document.getElementById("alertBadge");
+       // ============================================================
+//  ALERTAS - LIMITADO A 10 ITEMS CON BOTÓN DE LIMPIEZA
+// ============================================================
+function pushAlert(message, type = 'bad') {
+    const list = document.getElementById("alertsList");
+    const badge = document.getElementById("alertBadge");
 
-            if (alertCounter === 0) {
-                const empty = list.querySelector('.alert-empty');
-                if (empty) empty.remove();
-            }
+    // Eliminar mensaje vacío si existe
+    if (alertCounter === 0) {
+        const empty = list.querySelector('.alert-empty');
+        if (empty) empty.remove();
+    }
 
-            alertCounter++;
-            const displayCount = Math.min(alertCounter, 99);
-            badge.textContent = displayCount;
+    alertCounter++;
+    // 🔥 LIMITAR EL CONTADOR A 10
+    const displayCount = Math.min(alertCounter, 10);
+    badge.textContent = displayCount;
 
-            badge.className = 'badge-count';
-            if (type === 'bad') badge.classList.add('bad');
-            else if (type === 'warn') badge.classList.add('warn');
-            else badge.classList.add('ok');
+    // Color del badge según el tipo
+    badge.className = 'badge-count';
+    if (type === 'bad') badge.classList.add('bad');
+    else if (type === 'warn') badge.classList.add('warn');
+    else badge.classList.add('ok');
 
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const time = new Date().toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+    });
 
-            const item = document.createElement("div");
-            let alertClass = "alert-item";
-            if (type === 'warn') alertClass += " warn-alert";
-            else if (type === 'ok') alertClass += " ok-alert";
+    const item = document.createElement("div");
+    let alertClass = "alert-item";
+    if (type === 'warn') alertClass += " warn-alert";
+    else if (type === 'ok') alertClass += " ok-alert";
 
-            item.className = alertClass;
-            item.innerHTML = `
-                <div class="alert-message">${message}</div>
-                <div class="timestamp">🕐 ${time}</div>
-            `;
+    item.className = alertClass;
+    item.innerHTML = `
+        <div class="alert-message">${message}</div>
+        <div class="timestamp">🕐 ${time}</div>
+    `;
 
-            list.prepend(item);
+    list.prepend(item);
 
-            const items = list.querySelectorAll(".alert-item");
-            if (items.length > 20) {
-                items[items.length - 1].remove();
-            }
-        }
+    // 🔥 MANTENER EXACTAMENTE 10 ITEMS
+    const items = list.querySelectorAll(".alert-item");
+    while (items.length > 10) {
+        items[items.length - 1].remove();
+    }
 
+    // Si no hay items, mostrar mensaje vacío
+    if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "alert-empty";
+        empty.textContent = "✅ Sin eventos registrados";
+        list.appendChild(empty);
+    }
+}
+
+// ============================================================
+//  LIMPIAR ALERTAS
+// ============================================================
+function clearAlerts() {
+    const list = document.getElementById("alertsList");
+    const badge = document.getElementById("alertBadge");
+    
+    // Limpiar la lista
+    list.innerHTML = '<div class="alert-empty">✅ Sin eventos registrados</div>';
+    
+    // Resetear contador
+    alertCounter = 0;
+    badge.textContent = "0";
+    badge.className = "badge-count ok";
+}
         // ============================================================
         //  ACTUALIZACIÓN DEL GRÁFICO (CORREGIDO)
         // ============================================================
