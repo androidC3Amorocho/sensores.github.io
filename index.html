@@ -275,7 +275,6 @@
             font-size: 1em;
         }
 
-        /* Estados del badge */
         .status-badge.ok {
             background: rgba(0, 255, 136, 0.12);
             color: var(--ok-color);
@@ -321,6 +320,7 @@
             color: var(--text-muted);
             font-weight: 500;
             letter-spacing: 0.5px;
+            z-index: 10;
         }
 
         .chart-card .chart-status {
@@ -333,6 +333,12 @@
             padding: 2px 10px;
             border-radius: 10px;
             border: 1px solid var(--border-color);
+            z-index: 10;
+        }
+
+        .chart-card canvas {
+            width: 100% !important;
+            height: 100% !important;
         }
 
         /* ===== ALERTS PANEL ===== */
@@ -508,11 +514,12 @@
     <header>
         <div class="header-left">
             <h2>🌊 SCADA - Calidad del Agua</h2>
-            <span class="version">v2.0</span>
+            <span class="version">v2.1</span>
         </div>
         <div class="header-controls">
             <button id="btnMute" class="btn-action" onclick="toggleMute()">🔊 Sonido</button>
             <button id="btnReconnect" class="btn-action" onclick="manualReconnect()" style="display:none;">🔄 Reconectar</button>
+            <button id="btnClearChart" class="btn-action" onclick="clearChart()" title="Limpiar gráfico">🗑️ Limpiar</button>
             <div class="status-indicator">
                 <div id="statusDot" class="dot offline"></div>
                 <span id="statusText" class="status-text offline">Inicializando...</span>
@@ -564,7 +571,7 @@
             <!-- Chart -->
             <div class="chart-card">
                 <span class="chart-title">📈 Historial de parámetros</span>
-                <span id="chartStatus" class="chart-status">Esperando datos...</span>
+                <span id="chartStatus" class="chart-status">⏳ Esperando datos...</span>
                 <canvas id="telemetryChart"></canvas>
             </div>
         </div>
@@ -624,10 +631,9 @@
         let webSocket = null;
         let alertCounter = 0;
         let isMuted = false;
-        let isConnected = false;
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 10;
-        const maxChartPoints = 20;
+        const maxChartPoints = 30;
 
         let dataWatchdogTimer = null;
         const DATA_TIMEOUT_MS = 25000;
@@ -771,7 +777,7 @@
                             pointRadius: 3,
                             pointBackgroundColor: '#00e5ff',
                             spanGaps: false,
-                            fill: true
+                            fill: false
                         },
                         {
                             label: 'pH',
@@ -782,7 +788,7 @@
                             pointRadius: 3,
                             pointBackgroundColor: '#ffd000',
                             spanGaps: false,
-                            fill: true
+                            fill: false
                         },
                         {
                             label: 'Oxígeno (mg/L)',
@@ -793,7 +799,7 @@
                             pointRadius: 3,
                             pointBackgroundColor: '#00ff88',
                             spanGaps: false,
-                            fill: true
+                            fill: false
                         }
                     ]
                 },
@@ -858,7 +864,6 @@
                 showLoading(false);
                 document.getElementById('btnReconnect').style.display = 'inline-block';
 
-                // Reintentar automáticamente después de 10s
                 setTimeout(() => {
                     if (!systemHealth.wsConnected) {
                         loginAndConnect();
@@ -877,6 +882,10 @@
                 document.getElementById('btnReconnect').style.display = 'none';
                 showLoading(false);
                 updateStatus('warning', "Esperando telemetría...");
+
+                // 🔥 LIMPIAR GRÁFICO AL RECONECTAR
+                clearChart();
+                document.getElementById('chartStatus').textContent = '🔄 Reconectado - esperando datos...';
 
                 const subCmd = {
                     tsSubCmds: [
@@ -923,7 +932,6 @@
 
             webSocket.onerror = (err) => {
                 console.error("WebSocket error:", err);
-                // No cerrar inmediatamente, dejar que onclose maneje la reconexión
             };
         }
 
@@ -950,6 +958,7 @@
             systemHealth.lastDataTime = Date.now();
 
             let tempVal = null, phVal = null, oxyVal = null;
+            let hasValidData = false;
 
             // ---- Temperatura ----
             if (data.temperature && Array.isArray(data.temperature) && data.temperature.length > 0) {
@@ -958,10 +967,17 @@
                 if (systemHealth.tempValid) {
                     gaugeTemp.refresh(tempVal);
                     checkLimits('Temp', 'temperatura', tempVal, THRESHOLDS.temperature);
+                    hasValidData = true;
                 } else {
                     gaugeTemp.refresh(0);
                     setSensorBadgeOffline('Temp', 'Temperatura');
+                    tempVal = null;
                 }
+            } else {
+                systemHealth.tempValid = false;
+                gaugeTemp.refresh(0);
+                setSensorBadgeOffline('Temp', 'Temperatura');
+                tempVal = null;
             }
 
             // ---- pH ----
@@ -971,10 +987,17 @@
                 if (systemHealth.phValid) {
                     gaugePh.refresh(phVal);
                     checkLimits('Ph', 'pH', phVal, THRESHOLDS.ph);
+                    hasValidData = true;
                 } else {
                     gaugePh.refresh(0);
                     setSensorBadgeOffline('Ph', 'pH');
+                    phVal = null;
                 }
+            } else {
+                systemHealth.phValid = false;
+                gaugePh.refresh(0);
+                setSensorBadgeOffline('Ph', 'pH');
+                phVal = null;
             }
 
             // ---- Oxígeno ----
@@ -984,262 +1007,33 @@
                 if (systemHealth.oxyValid) {
                     gaugeOxy.refresh(oxyVal);
                     checkLimits('Oxy', 'Oxígeno', oxyVal, THRESHOLDS.oxygen);
+                    hasValidData = true;
                 } else {
                     gaugeOxy.refresh(0);
                     setSensorBadgeOffline('Oxy', 'Oxígeno');
+                    oxyVal = null;
                 }
+            } else {
+                systemHealth.oxyValid = false;
+                gaugeOxy.refresh(0);
+                setSensorBadgeOffline('Oxy', 'Oxígeno');
+                oxyVal = null;
             }
 
             // Actualizar estado general
             evaluateOverallSystemStatus();
 
-            // Actualizar gráfico
-            const chartTemp = systemHealth.tempValid ? tempVal : null;
-            const chartPh = systemHealth.phValid ? phVal : null;
-            const chartOxy = systemHealth.oxyValid ? oxyVal : null;
-            updateChart(timeStr, chartTemp, chartPh, chartOxy);
-
-            // Actualizar contador de datos en chart
-            document.getElementById('chartStatus').textContent =
-                `📊 ${telemetryChart.data.labels.length} puntos`;
+            // 🔥 ACTUALIZAR GRÁFICO - Solo si hay datos válidos
+            if (hasValidData) {
+                updateChart(timeStr, tempVal, phVal, oxyVal);
+                document.getElementById('chartStatus').textContent =
+                    `📊 ${telemetryChart.data.labels.length} puntos | ✅ Datos recientes`;
+            } else {
+                document.getElementById('chartStatus').textContent = '⏳ Sin datos válidos...';
+            }
         }
 
         function isValidValue(val, min, max) {
             return val !== null &&
                    val !== undefined &&
-                   !isNaN(val) &&
-                   isFinite(val) &&
-                   val >= min &&
-                   val <= max;
-        }
-
-        // ============================================================
-        //  LIMPIEZA DE GAUGES (OFFLINE)
-        // ============================================================
-        function clearAllGaugesToOffline() {
-            systemHealth.tempValid = false;
-            systemHealth.phValid = false;
-            systemHealth.oxyValid = false;
-
-            if (gaugeTemp) gaugeTemp.refresh(0);
-            if (gaugePh) gaugePh.refresh(0);
-            if (gaugeOxy) gaugeOxy.refresh(0);
-
-            setSensorBadgeOffline('Temp', 'Temperatura');
-            setSensorBadgeOffline('Ph', 'pH');
-            setSensorBadgeOffline('Oxy', 'Oxígeno');
-
-            // Limpiar el gráfico si no hay datos por mucho tiempo
-            if (Date.now() - systemHealth.lastDataTime > 60000) {
-                if (telemetryChart && telemetryChart.data.labels.length > 0) {
-                    // No limpiar completamente, solo marcar como sin datos
-                    document.getElementById('chartStatus').textContent = '⏳ Sin datos...';
-                }
-            }
-        }
-
-        function setSensorBadgeOffline(idSuffix, name) {
-            const badge = document.getElementById(`status${idSuffix}`);
-            badge.innerHTML = `<span class="icon">🔴</span> Desconectado`;
-            badge.className = "status-badge offline";
-
-            const card = document.getElementById(`card${idSuffix}`);
-            if (card) {
-                card.className = 'card status-offline';
-            }
-
-            if (previousStates[idSuffix] !== 'offline') {
-                pushAlert(`⚠️ Sensor ${name} desconectado`, 'bad');
-                previousStates[idSuffix] = 'offline';
-            }
-        }
-
-        // ============================================================
-        //  ACTUALIZACIÓN DE ESTADO
-        // ============================================================
-        function updateStatus(state, text) {
-            const dot = document.getElementById("statusDot");
-            const textEl = document.getElementById("statusText");
-
-            textEl.textContent = text;
-            dot.className = "dot";
-
-            if (state === 'online') {
-                dot.classList.add("online");
-                textEl.className = "status-text online";
-            } else if (state === 'warning') {
-                dot.classList.add("warning");
-                textEl.className = "status-text warning";
-            } else if (state === 'bad') {
-                dot.classList.add("bad");
-                textEl.className = "status-text bad";
-            } else {
-                dot.classList.add("offline");
-                textEl.className = "status-text offline";
-            }
-        }
-
-        function evaluateOverallSystemStatus() {
-            if (!systemHealth.wsConnected) {
-                updateStatus('bad', "Servidor desconectado");
-                return;
-            }
-
-            const allValid = systemHealth.tempValid && systemHealth.phValid && systemHealth.oxyValid;
-            const anyValid = systemHealth.tempValid || systemHealth.phValid || systemHealth.oxyValid;
-
-            if (allValid) {
-                updateStatus('online', "✅ Sistema en vivo");
-            } else if (anyValid) {
-                updateStatus('warning', "⚠️ Fallo parcial de sensores");
-            } else {
-                updateStatus('bad', "❌ Todos los sensores offline");
-            }
-        }
-
-        // ============================================================
-        //  VERIFICACIÓN DE LÍMITES
-        // ============================================================
-        function checkLimits(idSuffix, name, val, thresholds) {
-            const badge = document.getElementById(`status${idSuffix}`);
-            const card = document.getElementById(`card${idSuffix}`);
-            const formattedVal = val.toFixed(2);
-            const unit = thresholds.unit ? ` ${thresholds.unit}` : '';
-
-            let currentState;
-            let statusText = '';
-            let icon = '';
-
-            // Evaluar estado
-            if (val >= thresholds.minOk && val <= thresholds.maxOk) {
-                currentState = 'ok';
-                icon = '✅';
-                statusText = `Normal (${formattedVal}${unit})`;
-            } else if ((val >= thresholds.minWarn && val < thresholds.minOk) ||
-                       (val > thresholds.maxOk && val <= thresholds.maxWarn)) {
-                currentState = 'warn';
-                icon = '⚠️';
-                statusText = `Advertencia (${formattedVal}${unit})`;
-            } else {
-                currentState = 'bad';
-                icon = '🚨';
-                statusText = `Crítico (${formattedVal}${unit})`;
-            }
-
-            // Actualizar badge
-            badge.innerHTML = `<span class="icon">${icon}</span> ${statusText}`;
-            badge.className = `status-badge ${currentState}`;
-
-            // Actualizar card
-            if (card) {
-                card.className = `card status-${currentState}`;
-            }
-
-            // Alertas solo en transición de estado
-            if (previousStates[idSuffix] !== currentState) {
-                if (currentState === 'warn') {
-                    pushAlert(`⚠️ Advertencia en ${name}: ${formattedVal}${unit}`, 'warn');
-                } else if (currentState === 'bad') {
-                    pushAlert(`🚨 Alerta crítica en ${name}: ${formattedVal}${unit}`, 'bad');
-                    playAlarmSound();
-                } else if (currentState === 'ok' && previousStates[idSuffix] !== null) {
-                    pushAlert(`✅ ${name}恢复正常: ${formattedVal}${unit}`, 'ok');
-                    playOkSound();
-                }
-                previousStates[idSuffix] = currentState;
-            }
-        }
-
-        // ============================================================
-        //  ALERTAS
-        // ============================================================
-        function pushAlert(message, type = 'bad') {
-            const list = document.getElementById("alertsList");
-            const badge = document.getElementById("alertBadge");
-
-            // Eliminar mensaje vacío si existe
-            if (alertCounter === 0) {
-                const empty = list.querySelector('.alert-empty');
-                if (empty) empty.remove();
-            }
-
-            alertCounter++;
-            const displayCount = Math.min(alertCounter, 99);
-            badge.textContent = displayCount;
-
-            // Color del badge según el tipo
-            badge.className = 'badge-count';
-            if (type === 'bad') badge.classList.add('bad');
-            else if (type === 'warn') badge.classList.add('warn');
-            else badge.classList.add('ok');
-
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-            const item = document.createElement("div");
-            let alertClass = "alert-item";
-            if (type === 'warn') alertClass += " warn-alert";
-            else if (type === 'ok') alertClass += " ok-alert";
-
-            item.className = alertClass;
-            item.innerHTML = `
-                <div class="alert-message">${message}</div>
-                <div class="timestamp">🕐 ${time}</div>
-            `;
-
-            list.prepend(item);
-
-            // Limitar a 20 alertas
-            const items = list.querySelectorAll(".alert-item");
-            if (items.length > 20) {
-                items[items.length - 1].remove();
-            }
-        }
-
-        // ============================================================
-        //  ACTUALIZACIÓN DEL GRÁFICO
-        // ============================================================
-        function updateChart(time, temp, ph, oxy) {
-            if (telemetryChart.data.labels.length >= maxChartPoints) {
-                telemetryChart.data.labels.shift();
-                telemetryChart.data.datasets.forEach(dataset => dataset.data.shift());
-            }
-
-            telemetryChart.data.labels.push(time);
-            telemetryChart.data.datasets[0].data.push(temp);
-            telemetryChart.data.datasets[1].data.push(ph);
-            telemetryChart.data.datasets[2].data.push(oxy);
-            telemetryChart.update('none');
-        }
-
-        // ============================================================
-        //  WATCHDOG DE DATOS
-        // ============================================================
-        function resetDataWatchdog() {
-            clearTimeout(dataWatchdogTimer);
-            dataWatchdogTimer = setTimeout(() => {
-                if (Date.now() - systemHealth.lastDataTime > DATA_TIMEOUT_MS) {
-                    clearAllGaugesToOffline();
-                    evaluateOverallSystemStatus();
-                    pushAlert('⏰ Timeout: No se reciben datos del servidor', 'warn');
-                }
-            }, DATA_TIMEOUT_MS);
-        }
-
-        // ============================================================
-        //  LOADING OVERLAY
-        // ============================================================
-        function showLoading(active, text = 'Conectando...') {
-            const overlay = document.getElementById('loadingOverlay');
-            const textEl = overlay.querySelector('.loading-text');
-            if (textEl) textEl.textContent = text;
-            overlay.classList.toggle('active', active);
-        }
-
-        // ============================================================
-        //  INICIALIZACIÓN MANUAL (para reconexión)
-        // ============================================================
-        console.log('🌊 SCADA - Calidad del Agua v2.0');
-        console.log('📡 Conectando a ThingsBoard...');
-    </script>
-</body>
-</html>
+                   !isNaN(val)
