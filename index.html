@@ -224,6 +224,23 @@
             color: var(--text-muted);
             margin-top: 2px;
         }
+
+        .debug-panel {
+            background: #0a0e1a;
+            border: 1px solid #1e2942;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.7em;
+            color: #8892b0;
+        }
+
+        .debug-panel .raw-data {
+            color: #00ff88;
+        }
     </style>
 </head>
 <body>
@@ -264,15 +281,22 @@
             </div>
         </div>
 
-        <div class="alerts-panel">
-            <div class="alerts-header">
-                <span>⚠️ Registro de alertas</span>
-                <small id="alertCount">0</small>
-            </div>
-            <div id="alertsList" class="alerts-list">
-                <div style="color: var(--text-muted); font-size: 0.8em; text-align: center; margin-top: 15px;">
-                    Sin eventos.
+        <div>
+            <div class="alerts-panel">
+                <div class="alerts-header">
+                    <span>⚠️ Registro de alertas</span>
+                    <small id="alertCount">0</small>
                 </div>
+                <div id="alertsList" class="alerts-list">
+                    <div style="color: var(--text-muted); font-size: 0.8em; text-align: center; margin-top: 15px;">
+                        Sin eventos.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Panel de depuración -->
+            <div class="debug-panel" id="debugPanel">
+                <div><strong>🔍 DEBUG:</strong> Esperando datos...</div>
             </div>
         </div>
     </div>
@@ -281,7 +305,6 @@
         const TB_HOST = "thingsboard.cloud";
         const DEVICE_ID = "0d580f10-a62d-11f1-9b46-e7fbeb690c95";
         
-        // Credenciales de ThingsBoard
         const TB_USER = "scada-viewer@tuempresa.com";
         const TB_PASSWORD = "9b46-e7fbeb690c95";
 
@@ -295,7 +318,6 @@
         let dataWatchdogTimer = null;
         const DATA_TIMEOUT_MS = 20000;
 
-        // Estado de conexión de sensores
         const sensorStatus = {
             temp: { connected: false, value: null },
             ph: { connected: false, value: null },
@@ -303,6 +325,19 @@
         };
 
         let audioCtx = null;
+
+        function debugLog(message, type = 'info') {
+            const panel = document.getElementById('debugPanel');
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'raw' ? 'raw-data' : '';
+            panel.innerHTML += `<div class="${color}">[${time}] ${message}</div>`;
+            panel.scrollTop = panel.scrollHeight;
+            // Limitar a 20 líneas
+            const lines = panel.querySelectorAll('div');
+            if (lines.length > 20) {
+                lines[0].remove();
+            }
+        }
 
         function playAlarmSound() {
             if (isMuted) return;
@@ -394,11 +429,13 @@
                 const loginData = await loginRes.json();
                 jwtToken = loginData.token;
 
+                debugLog('✅ Autenticación exitosa');
                 updateStatus('warning', "Conectando al servidor...");
                 connectWebSocket(jwtToken);
 
             } catch (err) {
                 updateStatus('bad', "Error de autenticación");
+                debugLog('❌ Error de autenticación: ' + err.message);
                 console.error("Error en inicio de sesión:", err);
                 setTimeout(loginAndConnect, 10000);
             }
@@ -409,6 +446,7 @@
             webSocket = new WebSocket(wsUrl);
 
             webSocket.onopen = () => {
+                debugLog('🔌 WebSocket conectado');
                 updateStatus('warning', "Esperando telemetría...");
                 const subCmd = {
                     tsSubCmds: [
@@ -421,6 +459,7 @@
                     ]
                 };
                 webSocket.send(JSON.stringify(subCmd));
+                debugLog('📡 Suscripción enviada');
             };
 
             webSocket.onmessage = (event) => {
@@ -428,14 +467,20 @@
                     const msg = JSON.parse(event.data);
                     if (msg.data) {
                         resetDataWatchdog();
+                        // Mostrar datos crudos en debug
+                        const keys = Object.keys(msg.data);
+                        const cleanKeys = keys.map(k => k.replace(/[0-9]/g, ''));
+                        debugLog(`📊 Datos recibidos: ${keys.join(', ')}`, 'raw');
                         processTelemetry(msg.data);
                     }
                 } catch (e) {
                     console.error("Error procesando mensaje:", e);
+                    debugLog('❌ Error procesando mensaje: ' + e.message);
                 }
             };
 
             webSocket.onclose = () => {
+                debugLog('🔌 WebSocket desconectado');
                 clearTimeout(dataWatchdogTimer);
                 setAllSensorsOffline();
                 updateStatus('bad', "Servidor desconectado - reconectando...");
@@ -443,6 +488,7 @@
             };
 
             webSocket.onerror = (err) => {
+                debugLog('❌ Error WebSocket: ' + err.message);
                 console.error("Error en WebSocket:", err);
                 webSocket.close();
             };
@@ -451,6 +497,7 @@
         function resetDataWatchdog() {
             clearTimeout(dataWatchdogTimer);
             dataWatchdogTimer = setTimeout(() => {
+                debugLog('⏰ Timeout - sin datos');
                 setAllSensorsOffline();
                 updateStatus('bad', "Timeout - sensores sin datos");
             }, DATA_TIMEOUT_MS);
@@ -461,11 +508,10 @@
             sensorStatus.ph.connected = false;
             sensorStatus.oxy.connected = false;
             
-            updateSensorBadge('Temp', false, null, 'temperatura');
-            updateSensorBadge('Ph', false, null, 'pH');
-            updateSensorBadge('Oxy', false, null, 'oxígeno');
+            updateSensorBadge('Temp', false, null);
+            updateSensorBadge('Ph', false, null);
+            updateSensorBadge('Oxy', false, null);
             
-            // Resetear gauges
             if (gaugeTemp) gaugeTemp.refresh(0);
             if (gaugePh) gaugePh.refresh(0);
             if (gaugeOxy) gaugeOxy.refresh(0);
@@ -483,17 +529,24 @@
         function processTelemetry(data) {
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
+            // DEBUG: Mostrar todos los campos recibidos
+            debugLog(`🔍 Datos: ${JSON.stringify(data)}`, 'raw');
+            
             // --- PROCESAR TEMPERATURA ---
             let tempConnected = false;
             let tempValue = null;
             
+            // Buscar el flag de conexión
             if (data.temp_connected !== undefined) {
                 tempConnected = data.temp_connected === true || data.temp_connected === "true";
+                debugLog(`🌡️ temp_connected: ${data.temp_connected} -> ${tempConnected}`);
             }
             
+            // Buscar el valor de temperatura
             if (data.temperature && data.temperature[0] && data.temperature[0][1] !== null) {
                 tempValue = parseFloat(data.temperature[0][1]);
                 if (tempValue === -127.0) tempConnected = false;
+                debugLog(`🌡️ temperature: ${tempValue}°C`);
             }
             
             sensorStatus.temp.connected = tempConnected;
@@ -502,9 +555,11 @@
             if (tempConnected && tempValue !== null) {
                 gaugeTemp.refresh(tempValue > 0 ? tempValue : 0);
                 checkLimits("Temp", "temperatura", tempValue, 18, 20, 28, 32, "°C");
+                debugLog(`✅ Temp conectado: ${tempValue}°C`);
             } else {
                 gaugeTemp.refresh(0);
-                updateSensorBadge("Temp", false, null, "temperatura");
+                updateSensorBadge("Temp", false, null);
+                debugLog(`❌ Temp desconectado`);
             }
 
             // --- PROCESAR pH ---
@@ -513,10 +568,12 @@
             
             if (data.ph_connected !== undefined) {
                 phConnected = data.ph_connected === true || data.ph_connected === "true";
+                debugLog(`🧪 ph_connected: ${data.ph_connected} -> ${phConnected}`);
             }
             
             if (data.ph && data.ph[0] && data.ph[0][1] !== null) {
                 phValue = parseFloat(data.ph[0][1]);
+                debugLog(`🧪 pH: ${phValue}`);
             }
             
             sensorStatus.ph.connected = phConnected;
@@ -525,9 +582,11 @@
             if (phConnected && phValue !== null) {
                 gaugePh.refresh(phValue);
                 checkLimits("Ph", "pH", phValue, 6.0, 6.5, 8.5, 9.0, "");
+                debugLog(`✅ pH conectado: ${phValue}`);
             } else {
                 gaugePh.refresh(0);
-                updateSensorBadge("Ph", false, null, "pH");
+                updateSensorBadge("Ph", false, null);
+                debugLog(`❌ pH desconectado`);
             }
 
             // --- PROCESAR OXÍGENO ---
@@ -536,10 +595,12 @@
             
             if (data.oxygen_connected !== undefined) {
                 oxyConnected = data.oxygen_connected === true || data.oxygen_connected === "true";
+                debugLog(`💨 oxygen_connected: ${data.oxygen_connected} -> ${oxyConnected}`);
             }
             
             if (data.oxygen && data.oxygen[0] && data.oxygen[0][1] !== null) {
                 oxyValue = parseFloat(data.oxygen[0][1]);
+                debugLog(`💨 Oxígeno: ${oxyValue}mg/L`);
             }
             
             sensorStatus.oxy.connected = oxyConnected;
@@ -548,9 +609,11 @@
             if (oxyConnected && oxyValue !== null) {
                 gaugeOxy.refresh(oxyValue);
                 checkLimits("Oxy", "oxígeno", oxyValue, 3.0, 5.0, 12.0, 15.0, "mg/L");
+                debugLog(`✅ Oxígeno conectado: ${oxyValue}mg/L`);
             } else {
                 gaugeOxy.refresh(0);
-                updateSensorBadge("Oxy", false, null, "oxígeno");
+                updateSensorBadge("Oxy", false, null);
+                debugLog(`❌ Oxígeno desconectado`);
             }
 
             // Evaluar estado general del sistema
@@ -565,7 +628,7 @@
             );
         }
 
-        function updateSensorBadge(idSuffix, connected, value, name) {
+        function updateSensorBadge(idSuffix, connected, value) {
             const badge = document.getElementById(`status${idSuffix}`);
             
             if (!connected) {
@@ -574,10 +637,8 @@
                 return;
             }
             
-            // Si está conectado, mostrar el valor
             if (value !== null && value !== undefined) {
                 badge.innerText = `${value.toFixed(1)}`;
-                // La clase se actualizará en checkLimits
             }
         }
 
@@ -610,22 +671,18 @@
 
         function checkLimits(idSuffix, name, val, minWarn, minOk, maxOk, maxWarn, unit) {
             const badge = document.getElementById(`status${idSuffix}`);
-            let currentState = 'ok';
             const formattedVal = val.toFixed(1);
 
             if (val >= minOk && val <= maxOk) {
                 badge.innerText = `OK (${formattedVal} ${unit})`.trim();
                 badge.className = "status-badge ok";
-                currentState = 'ok';
             } else if ((val >= minWarn && val < minOk) || (val > maxOk && val <= maxWarn)) {
                 badge.innerText = `Advertencia (${formattedVal} ${unit})`.trim();
                 badge.className = "status-badge warn";
-                currentState = 'warn';
                 pushAlert(`⚠️ Advertencia en ${name}: ${formattedVal} ${unit}`.trim(), 'warn');
             } else {
                 badge.innerText = `Crítico (${formattedVal} ${unit})`.trim();
                 badge.className = "status-badge bad";
-                currentState = 'bad';
                 pushAlert(`🚨 Alerta crítica en ${name}: ${formattedVal} ${unit}`.trim(), 'bad');
                 playAlarmSound();
             }
@@ -650,7 +707,6 @@
 
             list.prepend(item);
 
-            // Limitar a 10 alertas
             const items = list.querySelectorAll(".alert-item");
             if (items.length > 10) {
                 items[items.length - 1].remove();
