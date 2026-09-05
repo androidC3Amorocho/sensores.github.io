@@ -294,7 +294,6 @@
                 </div>
             </div>
             
-            <!-- Panel de depuración -->
             <div class="debug-panel" id="debugPanel">
                 <div><strong>🔍 DEBUG:</strong> Esperando datos...</div>
             </div>
@@ -332,7 +331,6 @@
             const color = type === 'raw' ? 'raw-data' : '';
             panel.innerHTML += `<div class="${color}">[${time}] ${message}</div>`;
             panel.scrollTop = panel.scrollHeight;
-            // Limitar a 20 líneas
             const lines = panel.querySelectorAll('div');
             if (lines.length > 20) {
                 lines[0].remove();
@@ -467,10 +465,6 @@
                     const msg = JSON.parse(event.data);
                     if (msg.data) {
                         resetDataWatchdog();
-                        // Mostrar datos crudos en debug
-                        const keys = Object.keys(msg.data);
-                        const cleanKeys = keys.map(k => k.replace(/[0-9]/g, ''));
-                        debugLog(`📊 Datos recibidos: ${keys.join(', ')}`, 'raw');
                         processTelemetry(msg.data);
                     }
                 } catch (e) {
@@ -526,33 +520,51 @@
             else if (state === 'warning') dot.classList.add("warning");
         }
 
+        // Función auxiliar para extraer el valor de un campo de ThingsBoard
+        function extractValue(fieldData) {
+            if (!fieldData) return null;
+            if (Array.isArray(fieldData) && fieldData.length > 0) {
+                // Formato: [[timestamp, valor]]
+                return fieldData[0][1];
+            }
+            return fieldData;
+        }
+
+        // Función auxiliar para extraer el valor booleano de conexión
+        function extractBoolean(fieldData) {
+            if (!fieldData) return false;
+            let value = extractValue(fieldData);
+            if (value === null || value === undefined) return false;
+            // Si es string, comparar con "true"
+            if (typeof value === 'string') {
+                return value.toLowerCase() === 'true';
+            }
+            return Boolean(value);
+        }
+
         function processTelemetry(data) {
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
-            // DEBUG: Mostrar todos los campos recibidos
+            // Mostrar datos crudos en debug
+            debugLog(`📊 Datos recibidos: ${Object.keys(data).join(', ')}`, 'raw');
             debugLog(`🔍 Datos: ${JSON.stringify(data)}`, 'raw');
             
             // --- PROCESAR TEMPERATURA ---
-            let tempConnected = false;
-            let tempValue = null;
+            let tempConnected = extractBoolean(data.temp_connected);
+            let tempValue = extractValue(data.temperature);
             
-            // Buscar el flag de conexión
-            if (data.temp_connected !== undefined) {
-                tempConnected = data.temp_connected === true || data.temp_connected === "true";
-                debugLog(`🌡️ temp_connected: ${data.temp_connected} -> ${tempConnected}`);
-            }
-            
-            // Buscar el valor de temperatura
-            if (data.temperature && data.temperature[0] && data.temperature[0][1] !== null) {
-                tempValue = parseFloat(data.temperature[0][1]);
+            if (tempValue !== null) {
+                tempValue = parseFloat(tempValue);
                 if (tempValue === -127.0) tempConnected = false;
-                debugLog(`🌡️ temperature: ${tempValue}°C`);
             }
+            
+            debugLog(`🌡️ temp_connected: ${JSON.stringify(data.temp_connected)} -> ${tempConnected}`);
+            if (tempValue !== null) debugLog(`🌡️ temperature: ${tempValue}°C`);
             
             sensorStatus.temp.connected = tempConnected;
             sensorStatus.temp.value = tempValue;
             
-            if (tempConnected && tempValue !== null) {
+            if (tempConnected && tempValue !== null && !isNaN(tempValue)) {
                 gaugeTemp.refresh(tempValue > 0 ? tempValue : 0);
                 checkLimits("Temp", "temperatura", tempValue, 18, 20, 28, 32, "°C");
                 debugLog(`✅ Temp conectado: ${tempValue}°C`);
@@ -563,23 +575,21 @@
             }
 
             // --- PROCESAR pH ---
-            let phConnected = false;
-            let phValue = null;
+            let phConnected = extractBoolean(data.ph_connected);
+            let phValue = extractValue(data.ph);
             
-            if (data.ph_connected !== undefined) {
-                phConnected = data.ph_connected === true || data.ph_connected === "true";
-                debugLog(`🧪 ph_connected: ${data.ph_connected} -> ${phConnected}`);
+            if (phValue !== null) {
+                phValue = parseFloat(phValue);
+                if (phValue < 0) phConnected = false;
             }
             
-            if (data.ph && data.ph[0] && data.ph[0][1] !== null) {
-                phValue = parseFloat(data.ph[0][1]);
-                debugLog(`🧪 pH: ${phValue}`);
-            }
+            debugLog(`🧪 ph_connected: ${JSON.stringify(data.ph_connected)} -> ${phConnected}`);
+            if (phValue !== null) debugLog(`🧪 pH: ${phValue}`);
             
             sensorStatus.ph.connected = phConnected;
             sensorStatus.ph.value = phValue;
             
-            if (phConnected && phValue !== null) {
+            if (phConnected && phValue !== null && !isNaN(phValue) && phValue >= 0) {
                 gaugePh.refresh(phValue);
                 checkLimits("Ph", "pH", phValue, 6.0, 6.5, 8.5, 9.0, "");
                 debugLog(`✅ pH conectado: ${phValue}`);
@@ -590,23 +600,21 @@
             }
 
             // --- PROCESAR OXÍGENO ---
-            let oxyConnected = false;
-            let oxyValue = null;
+            let oxyConnected = extractBoolean(data.oxygen_connected);
+            let oxyValue = extractValue(data.oxygen);
             
-            if (data.oxygen_connected !== undefined) {
-                oxyConnected = data.oxygen_connected === true || data.oxygen_connected === "true";
-                debugLog(`💨 oxygen_connected: ${data.oxygen_connected} -> ${oxyConnected}`);
+            if (oxyValue !== null) {
+                oxyValue = parseFloat(oxyValue);
+                if (oxyValue < 0) oxyConnected = false;
             }
             
-            if (data.oxygen && data.oxygen[0] && data.oxygen[0][1] !== null) {
-                oxyValue = parseFloat(data.oxygen[0][1]);
-                debugLog(`💨 Oxígeno: ${oxyValue}mg/L`);
-            }
+            debugLog(`💨 oxygen_connected: ${JSON.stringify(data.oxygen_connected)} -> ${oxyConnected}`);
+            if (oxyValue !== null) debugLog(`💨 Oxígeno: ${oxyValue}mg/L`);
             
             sensorStatus.oxy.connected = oxyConnected;
             sensorStatus.oxy.value = oxyValue;
             
-            if (oxyConnected && oxyValue !== null) {
+            if (oxyConnected && oxyValue !== null && !isNaN(oxyValue) && oxyValue >= 0) {
                 gaugeOxy.refresh(oxyValue);
                 checkLimits("Oxy", "oxígeno", oxyValue, 3.0, 5.0, 12.0, 15.0, "mg/L");
                 debugLog(`✅ Oxígeno conectado: ${oxyValue}mg/L`);
@@ -622,9 +630,9 @@
             // Actualizar gráfica
             updateChart(
                 timeStr,
-                tempConnected && tempValue !== null ? tempValue : null,
-                phConnected && phValue !== null ? phValue : null,
-                oxyConnected && oxyValue !== null ? oxyValue : null
+                tempConnected && tempValue !== null && !isNaN(tempValue) ? tempValue : null,
+                phConnected && phValue !== null && !isNaN(phValue) ? phValue : null,
+                oxyConnected && oxyValue !== null && !isNaN(oxyValue) ? oxyValue : null
             );
         }
 
@@ -638,14 +646,13 @@
             }
             
             if (value !== null && value !== undefined) {
-                badge.innerText = `${value.toFixed(1)}`;
+                badge.innerText = `${parseFloat(value).toFixed(1)}`;
             }
         }
 
         function evaluateOverallSystemStatus() {
             const anyConnected = sensorStatus.temp.connected || sensorStatus.ph.connected || sensorStatus.oxy.connected;
             const allConnected = sensorStatus.temp.connected && sensorStatus.ph.connected && sensorStatus.oxy.connected;
-            const allDisconnected = !sensorStatus.temp.connected && !sensorStatus.ph.connected && !sensorStatus.oxy.connected;
 
             if (allConnected) {
                 updateStatus('online', "Sistema en línea");
@@ -671,7 +678,7 @@
 
         function checkLimits(idSuffix, name, val, minWarn, minOk, maxOk, maxWarn, unit) {
             const badge = document.getElementById(`status${idSuffix}`);
-            const formattedVal = val.toFixed(1);
+            const formattedVal = parseFloat(val).toFixed(1);
 
             if (val >= minOk && val <= maxOk) {
                 badge.innerText = `OK (${formattedVal} ${unit})`.trim();
