@@ -160,7 +160,6 @@
             transition: all 0.3s ease;
         }
 
-        /* Estilos de los estados */
         .ok { background: rgba(0, 255, 136, 0.15); color: var(--ok-color); border: 1px solid var(--ok-color); }
         .warn { background: rgba(255, 208, 0, 0.15); color: var(--warn-color); border: 1px solid var(--warn-color); }
         .bad { background: rgba(255, 77, 77, 0.15); color: var(--bad-color); border: 1px solid var(--bad-color); }
@@ -282,6 +281,7 @@
         const TB_HOST = "thingsboard.cloud";
         const DEVICE_ID = "0d580f10-a62d-11f1-9b46-e7fbeb690c95";
         
+        // Credenciales de ThingsBoard
         const TB_USER = "scada-viewer@tuempresa.com";
         const TB_PASSWORD = "9b46-e7fbeb690c95";
 
@@ -290,19 +290,17 @@
         let webSocket = null;
         let alertCounter = 0;
         let isMuted = false;
-        const maxChartPoints = 15;
+        const maxChartPoints = 20;
 
         let dataWatchdogTimer = null;
         const DATA_TIMEOUT_MS = 20000;
 
-        const systemHealth = {
-            wsConnected: false,
-            tempValid: false,
-            phValid: false,
-            oxyValid: false
+        // Estado de conexión de sensores
+        const sensorStatus = {
+            temp: { connected: false, value: null },
+            ph: { connected: false, value: null },
+            oxy: { connected: false, value: null }
         };
-
-        const previousStates = { Temp: null, Ph: null, Oxy: null };
 
         let audioCtx = null;
 
@@ -339,17 +337,23 @@
             gaugeTemp = new JustGage({
                 id: "gaugeTemp", value: 0, min: 0, max: 50, label: "°C",
                 gaugeColor: "#1e2942", levelColors: ["#00e5ff", "#00ff88", "#ff4d4d"],
-                valueFontColor: "#fff", labelFontColor: "#8892b0"
+                valueFontColor: "#fff", labelFontColor: "#8892b0",
+                donut: true,
+                hideMinMax: true
             });
             gaugePh = new JustGage({
                 id: "gaugePh", value: 0, min: 0, max: 14, label: "pH",
                 gaugeColor: "#1e2942", levelColors: ["#ff4d4d", "#00ff88", "#ff4d4d"],
-                valueFontColor: "#fff", labelFontColor: "#8892b0"
+                valueFontColor: "#fff", labelFontColor: "#8892b0",
+                donut: true,
+                hideMinMax: true
             });
             gaugeOxy = new JustGage({
                 id: "gaugeOxy", value: 0, min: 0, max: 12, label: "mg/L",
                 gaugeColor: "#1e2942", levelColors: ["#ff4d4d", "#ffd000", "#00ff88"],
-                valueFontColor: "#fff", labelFontColor: "#8892b0"
+                valueFontColor: "#fff", labelFontColor: "#8892b0",
+                donut: true,
+                hideMinMax: true
             });
         }
 
@@ -360,9 +364,9 @@
                 data: {
                     labels: [],
                     datasets: [
-                        { label: 'Temperatura (°C)', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 2, spanGaps: false },
-                        { label: 'pH', borderColor: '#ffd000', data: [], tension: 0.3, pointRadius: 2, spanGaps: false },
-                        { label: 'Oxígeno (mg/L)', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 2, spanGaps: false }
+                        { label: 'Temperatura (°C)', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 3, spanGaps: false },
+                        { label: 'pH', borderColor: '#ffd000', data: [], tension: 0.3, pointRadius: 3, spanGaps: false },
+                        { label: 'Oxígeno (mg/L)', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 3, spanGaps: false }
                     ]
                 },
                 options: {
@@ -385,7 +389,7 @@
                     body: JSON.stringify({ username: TB_USER, password: TB_PASSWORD })
                 });
 
-                if (!loginRes.ok) throw new Error("Credenciales inválidas o error de autenticación");
+                if (!loginRes.ok) throw new Error("Credenciales inválidas");
 
                 const loginData = await loginRes.json();
                 jwtToken = loginData.token;
@@ -394,10 +398,9 @@
                 connectWebSocket(jwtToken);
 
             } catch (err) {
-                systemHealth.wsConnected = false;
-                clearAllGaugesToOffline();
                 updateStatus('bad', "Error de autenticación");
                 console.error("Error en inicio de sesión:", err);
+                setTimeout(loginAndConnect, 10000);
             }
         }
 
@@ -406,7 +409,6 @@
             webSocket = new WebSocket(wsUrl);
 
             webSocket.onopen = () => {
-                systemHealth.wsConnected = true;
                 updateStatus('warning', "Esperando telemetría...");
                 const subCmd = {
                     tsSubCmds: [
@@ -422,56 +424,51 @@
             };
 
             webSocket.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-                if (msg.data) {
-                    resetDataWatchdog();
-                    processTelemetry(msg.data);
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.data) {
+                        resetDataWatchdog();
+                        processTelemetry(msg.data);
+                    }
+                } catch (e) {
+                    console.error("Error procesando mensaje:", e);
                 }
             };
 
             webSocket.onclose = () => {
-                systemHealth.wsConnected = false;
                 clearTimeout(dataWatchdogTimer);
-                clearAllGaugesToOffline();
+                setAllSensorsOffline();
                 updateStatus('bad', "Servidor desconectado - reconectando...");
                 setTimeout(loginAndConnect, 5000);
             };
 
-            webSocket.onerror = (err) => console.error("Error en WebSocket:", err);
+            webSocket.onerror = (err) => {
+                console.error("Error en WebSocket:", err);
+                webSocket.close();
+            };
         }
 
         function resetDataWatchdog() {
             clearTimeout(dataWatchdogTimer);
             dataWatchdogTimer = setTimeout(() => {
-                clearAllGaugesToOffline();
-                evaluateOverallSystemStatus();
+                setAllSensorsOffline();
+                updateStatus('bad', "Timeout - sensores sin datos");
             }, DATA_TIMEOUT_MS);
         }
 
-        function clearAllGaugesToOffline() {
-            systemHealth.tempValid = false;
-            systemHealth.phValid = false;
-            systemHealth.oxyValid = false;
-
+        function setAllSensorsOffline() {
+            sensorStatus.temp.connected = false;
+            sensorStatus.ph.connected = false;
+            sensorStatus.oxy.connected = false;
+            
+            updateSensorBadge('Temp', false, null, 'temperatura');
+            updateSensorBadge('Ph', false, null, 'pH');
+            updateSensorBadge('Oxy', false, null, 'oxígeno');
+            
+            // Resetear gauges
             if (gaugeTemp) gaugeTemp.refresh(0);
             if (gaugePh) gaugePh.refresh(0);
             if (gaugeOxy) gaugeOxy.refresh(0);
-
-            setSensorBadgeOffline("Temp", "temperatura");
-            setSensorBadgeOffline("Ph", "pH");
-            setSensorBadgeOffline("Oxy", "oxígeno");
-        }
-
-        function setSensorBadgeOffline(idSuffix, name) {
-            const badge = document.getElementById(`status${idSuffix}`);
-            badge.innerText = "Desconectado";
-            badge.className = "status-badge offline";
-
-            if (previousStates[idSuffix] !== 'offline') {
-                pushAlert(`Sensor de ${name} apagado o sin señal`, 'bad');
-                playAlarmSound();
-                previousStates[idSuffix] = 'offline';
-            }
         }
 
         function updateStatus(state, text) {
@@ -483,88 +480,121 @@
             else if (state === 'warning') dot.classList.add("warning");
         }
 
-       function processTelemetry(data) {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    let tempVal = null, phVal = null, oxyVal = null;
+        function processTelemetry(data) {
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            // --- PROCESAR TEMPERATURA ---
+            let tempConnected = false;
+            let tempValue = null;
+            
+            if (data.temp_connected !== undefined) {
+                tempConnected = data.temp_connected === true || data.temp_connected === "true";
+            }
+            
+            if (data.temperature && data.temperature[0] && data.temperature[0][1] !== null) {
+                tempValue = parseFloat(data.temperature[0][1]);
+                if (tempValue === -127.0) tempConnected = false;
+            }
+            
+            sensorStatus.temp.connected = tempConnected;
+            sensorStatus.temp.value = tempValue;
+            
+            if (tempConnected && tempValue !== null) {
+                gaugeTemp.refresh(tempValue > 0 ? tempValue : 0);
+                checkLimits("Temp", "temperatura", tempValue, 18, 20, 28, 32, "°C");
+            } else {
+                gaugeTemp.refresh(0);
+                updateSensorBadge("Temp", false, null, "temperatura");
+            }
 
-    // --- PROCESAR TEMPERATURA ---
-    if (data.temperature && data.temperature[0] && data.temperature[0][1] !== null) {
-        tempVal = parseFloat(data.temperature[0][1]);
-        systemHealth.tempValid = (!isNaN(tempVal) && tempVal !== -127.0);
-    } else {
-        systemHealth.tempValid = false;
-    }
+            // --- PROCESAR pH ---
+            let phConnected = false;
+            let phValue = null;
+            
+            if (data.ph_connected !== undefined) {
+                phConnected = data.ph_connected === true || data.ph_connected === "true";
+            }
+            
+            if (data.ph && data.ph[0] && data.ph[0][1] !== null) {
+                phValue = parseFloat(data.ph[0][1]);
+            }
+            
+            sensorStatus.ph.connected = phConnected;
+            sensorStatus.ph.value = phValue;
+            
+            if (phConnected && phValue !== null) {
+                gaugePh.refresh(phValue);
+                checkLimits("Ph", "pH", phValue, 6.0, 6.5, 8.5, 9.0, "");
+            } else {
+                gaugePh.refresh(0);
+                updateSensorBadge("Ph", false, null, "pH");
+            }
 
-    if (systemHealth.tempValid) {
-        gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
-        checkLimits("Temp", "temperatura", tempVal, 18, 20, 28, 32, "°C");
-    } else {
-        gaugeTemp.refresh(0);
-        setSensorBadgeOffline("Temp", "temperatura");
-    }
+            // --- PROCESAR OXÍGENO ---
+            let oxyConnected = false;
+            let oxyValue = null;
+            
+            if (data.oxygen_connected !== undefined) {
+                oxyConnected = data.oxygen_connected === true || data.oxygen_connected === "true";
+            }
+            
+            if (data.oxygen && data.oxygen[0] && data.oxygen[0][1] !== null) {
+                oxyValue = parseFloat(data.oxygen[0][1]);
+            }
+            
+            sensorStatus.oxy.connected = oxyConnected;
+            sensorStatus.oxy.value = oxyValue;
+            
+            if (oxyConnected && oxyValue !== null) {
+                gaugeOxy.refresh(oxyValue);
+                checkLimits("Oxy", "oxígeno", oxyValue, 3.0, 5.0, 12.0, 15.0, "mg/L");
+            } else {
+                gaugeOxy.refresh(0);
+                updateSensorBadge("Oxy", false, null, "oxígeno");
+            }
 
-    // --- PROCESAR pH ---
-    if (data.ph && data.ph[0] && data.ph[0][1] !== null) {
-        phVal = parseFloat(data.ph[0][1]);
-        systemHealth.phValid = (!isNaN(phVal) && phVal >= 0);
-    } else {
-        systemHealth.phValid = false;
-    }
+            // Evaluar estado general del sistema
+            evaluateOverallSystemStatus();
 
-    if (systemHealth.phValid) {
-        gaugePh.refresh(phVal);
-        checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "");
-    } else {
-        gaugePh.refresh(0);
-        setSensorBadgeOffline("Ph", "pH");
-    }
+            // Actualizar gráfica
+            updateChart(
+                timeStr,
+                tempConnected && tempValue !== null ? tempValue : null,
+                phConnected && phValue !== null ? phValue : null,
+                oxyConnected && oxyValue !== null ? oxyValue : null
+            );
+        }
 
-    // --- PROCESAR OXÍGENO DISUELTO ---
-    if (data.oxygen && data.oxygen[0] && data.oxygen[0][1] !== null) {
-        oxyVal = parseFloat(data.oxygen[0][1]);
-        systemHealth.oxyValid = (!isNaN(oxyVal) && oxyVal >= 0);
-    } else {
-        systemHealth.oxyValid = false;
-    }
+        function updateSensorBadge(idSuffix, connected, value, name) {
+            const badge = document.getElementById(`status${idSuffix}`);
+            
+            if (!connected) {
+                badge.innerText = "Desconectado";
+                badge.className = "status-badge offline";
+                return;
+            }
+            
+            // Si está conectado, mostrar el valor
+            if (value !== null && value !== undefined) {
+                badge.innerText = `${value.toFixed(1)}`;
+                // La clase se actualizará en checkLimits
+            }
+        }
 
-    if (systemHealth.oxyValid) {
-        gaugeOxy.refresh(oxyVal);
-        checkLimits("Oxy", "oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L");
-    } else {
-        gaugeOxy.refresh(0);
-        setSensorBadgeOffline("Oxy", "oxígeno");
-    }
+        function evaluateOverallSystemStatus() {
+            const anyConnected = sensorStatus.temp.connected || sensorStatus.ph.connected || sensorStatus.oxy.connected;
+            const allConnected = sensorStatus.temp.connected && sensorStatus.ph.connected && sensorStatus.oxy.connected;
+            const allDisconnected = !sensorStatus.temp.connected && !sensorStatus.ph.connected && !sensorStatus.oxy.connected;
 
-    // Evaluar y actualizar estado general
-    evaluateOverallSystemStatus();
+            if (allConnected) {
+                updateStatus('online', "Sistema en línea");
+            } else if (anyConnected) {
+                updateStatus('warning', "Falla parcial de sensores");
+            } else {
+                updateStatus('bad', "Todos los sensores desconectados");
+            }
+        }
 
-    // Actualizar gráfica lineal con datos válidos o nulos
-    const chartTemp = systemHealth.tempValid ? tempVal : null;
-    const chartPh = systemHealth.phValid ? phVal : null;
-    const chartOxy = systemHealth.oxyValid ? oxyVal : null;
-
-    updateChart(timeStr, chartTemp, chartPh, chartOxy);
-}
-
-function evaluateOverallSystemStatus() {
-    if (!systemHealth.wsConnected) {
-        updateStatus('bad', "Servidor desconectado");
-        return;
-    }
-
-    const allSensorsOffline = !systemHealth.tempValid && !systemHealth.phValid && !systemHealth.oxyValid;
-    const partialSensorError = !systemHealth.tempValid || !systemHealth.phValid || !systemHealth.oxyValid;
-
-    if (allSensorsOffline) {
-        updateStatus('bad', "Todos los sensores desconectados");
-    } else if (partialSensorError) {
-        updateStatus('warning', "Falla parcial de sensores");
-    } else {
-        updateStatus('online', "Sistema en línea");
-    }
-}
-
-      
         function updateChart(time, temp, ph, oxy) {
             if (telemetryChart.data.labels.length >= maxChartPoints) {
                 telemetryChart.data.labels.shift();
@@ -575,7 +605,7 @@ function evaluateOverallSystemStatus() {
             telemetryChart.data.datasets[0].data.push(temp);
             telemetryChart.data.datasets[1].data.push(ph);
             telemetryChart.data.datasets[2].data.push(oxy);
-            telemetryChart.update();
+            telemetryChart.update('none');
         }
 
         function checkLimits(idSuffix, name, val, minWarn, minOk, maxOk, maxWarn, unit) {
@@ -591,22 +621,14 @@ function evaluateOverallSystemStatus() {
                 badge.innerText = `Advertencia (${formattedVal} ${unit})`.trim();
                 badge.className = "status-badge warn";
                 currentState = 'warn';
-                
-                if (previousStates[idSuffix] !== currentState) {
-                    pushAlert(`Advertencia en ${name}: ${formattedVal} ${unit}`.trim(), 'warn');
-                }
+                pushAlert(`⚠️ Advertencia en ${name}: ${formattedVal} ${unit}`.trim(), 'warn');
             } else {
                 badge.innerText = `Crítico (${formattedVal} ${unit})`.trim();
                 badge.className = "status-badge bad";
                 currentState = 'bad';
-                
-                if (previousStates[idSuffix] !== currentState) {
-                    pushAlert(`Alerta crítica en ${name}: ${formattedVal} ${unit}`.trim(), 'bad');
-                    playAlarmSound();
-                }
+                pushAlert(`🚨 Alerta crítica en ${name}: ${formattedVal} ${unit}`.trim(), 'bad');
+                playAlarmSound();
             }
-
-            previousStates[idSuffix] = currentState;
         }
 
         function pushAlert(message, type = 'bad') {
@@ -615,7 +637,7 @@ function evaluateOverallSystemStatus() {
 
             if (alertCounter === 0) list.innerHTML = "";
             alertCounter++;
-            count.innerText = Math.min(alertCounter, 10);
+            count.innerText = alertCounter;
 
             const time = new Date().toLocaleTimeString();
             const item = document.createElement("div");
@@ -624,10 +646,11 @@ function evaluateOverallSystemStatus() {
             if (type === 'warn') alertClass += " warn-alert";
 
             item.className = alertClass;
-            item.innerHTML = `<div><strong>${message}</strong></div><div class="timestamp">${time}</div>`;
+            item.innerHTML = `<div>${message}</div><div class="timestamp">${time}</div>`;
 
             list.prepend(item);
 
+            // Limitar a 10 alertas
             const items = list.querySelectorAll(".alert-item");
             if (items.length > 10) {
                 items[items.length - 1].remove();
