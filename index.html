@@ -483,73 +483,88 @@
             else if (state === 'warning') dot.classList.add("warning");
         }
 
-        function processTelemetry(data) {
-            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            let tempVal = null, phVal = null, oxyVal = null;
+       function processTelemetry(data) {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    let tempVal = null, phVal = null, oxyVal = null;
 
-            if (data.temperature) {
-                tempVal = parseFloat(data.temperature[0][1]);
-                systemHealth.tempValid = (tempVal !== -127 && !isNaN(tempVal) && tempVal !== null);
-                if (systemHealth.tempValid) {
-                    gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
-                    checkLimits("Temp", "temperatura", tempVal, 18, 20, 28, 32, "°C");
-                } else {
-                    gaugeTemp.refresh(0);
-                    setSensorBadgeOffline("Temp", "temperatura");
-                }
-            }
+    // --- PROCESAR TEMPERATURA ---
+    if (data.temperature && data.temperature[0] && data.temperature[0][1] !== null) {
+        tempVal = parseFloat(data.temperature[0][1]);
+        systemHealth.tempValid = (!isNaN(tempVal) && tempVal !== -127.0);
+    } else {
+        systemHealth.tempValid = false;
+    }
 
-            if (data.ph) {
-                phVal = parseFloat(data.ph[0][1]);
-                systemHealth.phValid = (phVal >= 0 && !isNaN(phVal) && phVal !== null);
-                if (systemHealth.phValid) {
-                    gaugePh.refresh(phVal);
-                    checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "");
-                } else {
-                    gaugePh.refresh(0);
-                    setSensorBadgeOffline("Ph", "pH");
-                }
-            }
+    if (systemHealth.tempValid) {
+        gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
+        checkLimits("Temp", "temperatura", tempVal, 18, 20, 28, 32, "°C");
+    } else {
+        gaugeTemp.refresh(0);
+        setSensorBadgeOffline("Temp", "temperatura");
+    }
 
-            if (data.oxygen) {
-                oxyVal = parseFloat(data.oxygen[0][1]);
-                systemHealth.oxyValid = (oxyVal >= 0 && !isNaN(oxyVal) && oxyVal !== null);
-                if (systemHealth.oxyValid) {
-                    gaugeOxy.refresh(oxyVal);
-                    checkLimits("Oxy", "oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L");
-                } else {
-                    gaugeOxy.refresh(0);
-                    setSensorBadgeOffline("Oxy", "oxígeno");
-                }
-            }
+    // --- PROCESAR pH ---
+    if (data.ph && data.ph[0] && data.ph[0][1] !== null) {
+        phVal = parseFloat(data.ph[0][1]);
+        systemHealth.phValid = (!isNaN(phVal) && phVal >= 0);
+    } else {
+        systemHealth.phValid = false;
+    }
 
-            evaluateOverallSystemStatus();
+    if (systemHealth.phValid) {
+        gaugePh.refresh(phVal);
+        checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "");
+    } else {
+        gaugePh.refresh(0);
+        setSensorBadgeOffline("Ph", "pH");
+    }
 
-            const chartTemp = systemHealth.tempValid ? tempVal : null;
-            const chartPh = systemHealth.phValid ? phVal : null;
-            const chartOxy = systemHealth.oxyValid ? oxyVal : null;
+    // --- PROCESAR OXÍGENO DISUELTO ---
+    if (data.oxygen && data.oxygen[0] && data.oxygen[0][1] !== null) {
+        oxyVal = parseFloat(data.oxygen[0][1]);
+        systemHealth.oxyValid = (!isNaN(oxyVal) && oxyVal >= 0);
+    } else {
+        systemHealth.oxyValid = false;
+    }
 
-            updateChart(timeStr, chartTemp, chartPh, chartOxy);
-        }
+    if (systemHealth.oxyValid) {
+        gaugeOxy.refresh(oxyVal);
+        checkLimits("Oxy", "oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L");
+    } else {
+        gaugeOxy.refresh(0);
+        setSensorBadgeOffline("Oxy", "oxígeno");
+    }
 
-        function evaluateOverallSystemStatus() {
-            if (!systemHealth.wsConnected) {
-                updateStatus('bad', "Servidor desconectado");
-                return;
-            }
+    // Evaluar y actualizar estado general
+    evaluateOverallSystemStatus();
 
-            const allSensorsOffline = !systemHealth.tempValid && !systemHealth.phValid && !systemHealth.oxyValid;
-            const partialSensorError = !systemHealth.tempValid || !systemHealth.phValid || !systemHealth.oxyValid;
+    // Actualizar gráfica lineal con datos válidos o nulos
+    const chartTemp = systemHealth.tempValid ? tempVal : null;
+    const chartPh = systemHealth.phValid ? phVal : null;
+    const chartOxy = systemHealth.oxyValid ? oxyVal : null;
 
-            if (allSensorsOffline) {
-                updateStatus('warning', "Sensores apagados o sin datos");
-            } else if (partialSensorError) {
-                updateStatus('warning', "Falla parcial de sensores");
-            } else {
-                updateStatus('online', "Sistema en línea");
-            }
-        }
+    updateChart(timeStr, chartTemp, chartPh, chartOxy);
+}
 
+function evaluateOverallSystemStatus() {
+    if (!systemHealth.wsConnected) {
+        updateStatus('bad', "Servidor desconectado");
+        return;
+    }
+
+    const allSensorsOffline = !systemHealth.tempValid && !systemHealth.phValid && !systemHealth.oxyValid;
+    const partialSensorError = !systemHealth.tempValid || !systemHealth.phValid || !systemHealth.oxyValid;
+
+    if (allSensorsOffline) {
+        updateStatus('bad', "Todos los sensores desconectados");
+    } else if (partialSensorError) {
+        updateStatus('warning', "Falla parcial de sensores");
+    } else {
+        updateStatus('online', "Sistema en línea");
+    }
+}
+
+      
         function updateChart(time, temp, ph, oxy) {
             if (telemetryChart.data.labels.length >= maxChartPoints) {
                 telemetryChart.data.labels.shift();
