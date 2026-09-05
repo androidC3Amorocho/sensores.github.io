@@ -342,111 +342,131 @@
         }
 
         /* ===== ALERTS PANEL ===== */
-        .alerts-panel {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 15px;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-            max-height: 400px;
-        }
+.alerts-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 15px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    max-height: 350px;
+    min-height: 200px;
+    overflow: hidden;
+}
 
-        @media (min-width: 992px) {
-            .alerts-panel { max-height: 100%; min-height: 400px; }
-        }
+@media (min-width: 992px) {
+    .alerts-panel { max-height: 100%; min-height: 400px; }
+}
 
-        .alerts-header {
-            font-size: 0.9em;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--text-muted);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 8px;
-        }
+.alerts-header {
+    font-size: 0.9em;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    flex-shrink: 0;
+}
 
-        .alerts-header .badge-count {
-            background: var(--bad-color);
-            color: #fff;
-            font-size: 0.7em;
-            padding: 1px 10px;
-            border-radius: 12px;
-            font-weight: 700;
-        }
+.alerts-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 
-        .alerts-header .badge-count.warn {
-            background: var(--warn-color);
-            color: #000;
-        }
+.alerts-header .badge-count {
+    background: var(--bad-color);
+    color: #fff;
+    font-size: 0.7em;
+    padding: 1px 10px;
+    border-radius: 12px;
+    font-weight: 700;
+    min-width: 20px;
+    text-align: center;
+}
 
-        .alerts-header .badge-count.ok {
-            background: var(--ok-color);
-            color: #000;
-        }
+.alerts-header .badge-count.warn {
+    background: var(--warn-color);
+    color: #000;
+}
 
-        .alerts-list {
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            flex: 1;
-            padding-right: 4px;
-        }
+.alerts-header .badge-count.ok {
+    background: var(--ok-color);
+    color: #000;
+}
 
-        .alerts-list::-webkit-scrollbar {
-            width: 4px;
-        }
+.alerts-list {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    padding-right: 4px;
+    max-height: 280px;
+    min-height: 80px;
+}
 
-        .alerts-list::-webkit-scrollbar-track {
-            background: var(--bg-color);
-            border-radius: 4px;
-        }
+.alerts-list::-webkit-scrollbar {
+    width: 4px;
+}
 
-        .alerts-list::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 4px;
-        }
+.alerts-list::-webkit-scrollbar-track {
+    background: var(--bg-color);
+    border-radius: 4px;
+}
 
-        .alert-item {
-            background: var(--panel-bg);
-            border-left: 3px solid var(--bad-color);
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 0.78em;
-            animation: slideIn 0.3s ease;
-        }
+.alerts-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
 
-        .alert-item.warn-alert {
-            border-left-color: var(--warn-color);
-        }
+.alert-item {
+    background: var(--panel-bg);
+    border-left: 3px solid var(--bad-color);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.78em;
+    animation: slideIn 0.3s ease;
+    flex-shrink: 0;
+}
 
-        .alert-item.ok-alert {
-            border-left-color: var(--ok-color);
-            opacity: 0.7;
-        }
+.alert-item.warn-alert {
+    border-left-color: var(--warn-color);
+}
 
-        .alert-item .timestamp {
-            font-size: 0.7em;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
+.alert-item.ok-alert {
+    border-left-color: var(--ok-color);
+    opacity: 0.7;
+}
 
-        .alert-item .alert-message {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
+.alert-item .timestamp {
+    font-size: 0.7em;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
 
-        .alert-empty {
-            color: var(--text-muted);
-            font-size: 0.8em;
-            text-align: center;
-            padding: 20px 0;
-        }
+.alert-item .alert-message {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    word-break: break-word;
+}
+
+.alert-empty {
+    color: var(--text-muted);
+    font-size: 0.8em;
+    text-align: center;
+    padding: 20px 0;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
 
         @keyframes slideIn {
             from { opacity: 0; transform: translateX(-20px); }
@@ -578,15 +598,19 @@
 
         <!-- Alerts Panel -->
         <div class="alerts-panel">
-            <div class="alerts-header">
-                <span>🚨 Registro de eventos</span>
-                <span id="alertBadge" class="badge-count ok">0</span>
-            </div>
-            <div id="alertsList" class="alerts-list">
-                <div class="alert-empty">✅ Sin eventos registrados</div>
-            </div>
+    <div class="alerts-header">
+        <div class="alerts-header-left">
+            <span>🚨 Registro de eventos</span>
+            <span id="alertBadge" class="badge-count ok">0</span>
         </div>
+        <button id="btnClearAlerts" class="btn-action" onclick="clearAlerts()" style="font-size:0.7em; padding:2px 10px;">
+            🗑️ Limpiar
+        </button>
     </div>
+    <div id="alertsList" class="alerts-list">
+        <div class="alert-empty">✅ Sin eventos registrados</div>
+    </div>
+</div>
 
     <script>
         // ============================================================
