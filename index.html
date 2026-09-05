@@ -1036,4 +1036,260 @@
         function isValidValue(val, min, max) {
             return val !== null &&
                    val !== undefined &&
-                   !isNaN(val)
+                   !isNaN(val) &&
+                   isFinite(val) &&
+                   val >= min &&
+                   val <= max;
+        }
+
+        // ============================================================
+        //  LIMPIEZA DE GAUGES (OFFLINE)
+        // ============================================================
+        function clearAllGaugesToOffline() {
+            systemHealth.tempValid = false;
+            systemHealth.phValid = false;
+            systemHealth.oxyValid = false;
+
+            if (gaugeTemp) gaugeTemp.refresh(0);
+            if (gaugePh) gaugePh.refresh(0);
+            if (gaugeOxy) gaugeOxy.refresh(0);
+
+            setSensorBadgeOffline('Temp', 'Temperatura');
+            setSensorBadgeOffline('Ph', 'pH');
+            setSensorBadgeOffline('Oxy', 'Oxígeno');
+
+            // 🔥 LIMPIAR GRÁFICO CUANDO NO HAY DATOS
+            clearChart();
+            document.getElementById('chartStatus').textContent = '⏳ Sin datos - sensores offline';
+        }
+
+        function setSensorBadgeOffline(idSuffix, name) {
+            const badge = document.getElementById(`status${idSuffix}`);
+            badge.innerHTML = `<span class="icon">🔴</span> Desconectado`;
+            badge.className = "status-badge offline";
+
+            const card = document.getElementById(`card${idSuffix}`);
+            if (card) {
+                card.className = 'card status-offline';
+            }
+
+            if (previousStates[idSuffix] !== 'offline') {
+                pushAlert(`⚠️ Sensor ${name} desconectado`, 'bad');
+                previousStates[idSuffix] = 'offline';
+            }
+        }
+
+        // ============================================================
+        //  ACTUALIZACIÓN DE ESTADO
+        // ============================================================
+        function updateStatus(state, text) {
+            const dot = document.getElementById("statusDot");
+            const textEl = document.getElementById("statusText");
+
+            textEl.textContent = text;
+            dot.className = "dot";
+
+            if (state === 'online') {
+                dot.classList.add("online");
+                textEl.className = "status-text online";
+            } else if (state === 'warning') {
+                dot.classList.add("warning");
+                textEl.className = "status-text warning";
+            } else if (state === 'bad') {
+                dot.classList.add("bad");
+                textEl.className = "status-text bad";
+            } else {
+                dot.classList.add("offline");
+                textEl.className = "status-text offline";
+            }
+        }
+
+        function evaluateOverallSystemStatus() {
+            if (!systemHealth.wsConnected) {
+                updateStatus('bad', "Servidor desconectado");
+                return;
+            }
+
+            const allValid = systemHealth.tempValid && systemHealth.phValid && systemHealth.oxyValid;
+            const anyValid = systemHealth.tempValid || systemHealth.phValid || systemHealth.oxyValid;
+
+            if (allValid) {
+                updateStatus('online', "✅ Sistema en vivo");
+            } else if (anyValid) {
+                updateStatus('warning', "⚠️ Fallo parcial de sensores");
+            } else {
+                updateStatus('bad', "❌ Todos los sensores offline");
+            }
+        }
+
+        // ============================================================
+        //  VERIFICACIÓN DE LÍMITES
+        // ============================================================
+        function checkLimits(idSuffix, name, val, thresholds) {
+            const badge = document.getElementById(`status${idSuffix}`);
+            const card = document.getElementById(`card${idSuffix}`);
+            const formattedVal = val.toFixed(2);
+            const unit = thresholds.unit ? ` ${thresholds.unit}` : '';
+
+            let currentState;
+            let statusText = '';
+            let icon = '';
+
+            if (val >= thresholds.minOk && val <= thresholds.maxOk) {
+                currentState = 'ok';
+                icon = '✅';
+                statusText = `Normal (${formattedVal}${unit})`;
+            } else if ((val >= thresholds.minWarn && val < thresholds.minOk) ||
+                       (val > thresholds.maxOk && val <= thresholds.maxWarn)) {
+                currentState = 'warn';
+                icon = '⚠️';
+                statusText = `Advertencia (${formattedVal}${unit})`;
+            } else {
+                currentState = 'bad';
+                icon = '🚨';
+                statusText = `Crítico (${formattedVal}${unit})`;
+            }
+
+            badge.innerHTML = `<span class="icon">${icon}</span> ${statusText}`;
+            badge.className = `status-badge ${currentState}`;
+
+            if (card) {
+                card.className = `card status-${currentState}`;
+            }
+
+            if (previousStates[idSuffix] !== currentState) {
+                if (currentState === 'warn') {
+                    pushAlert(`⚠️ Advertencia en ${name}: ${formattedVal}${unit}`, 'warn');
+                } else if (currentState === 'bad') {
+                    pushAlert(`🚨 Alerta crítica en ${name}: ${formattedVal}${unit}`, 'bad');
+                    playAlarmSound();
+                } else if (currentState === 'ok' && previousStates[idSuffix] !== null) {
+                    pushAlert(`✅ ${name} normalizado: ${formattedVal}${unit}`, 'ok');
+                    playOkSound();
+                }
+                previousStates[idSuffix] = currentState;
+            }
+        }
+
+        // ============================================================
+        //  ALERTAS
+        // ============================================================
+        function pushAlert(message, type = 'bad') {
+            const list = document.getElementById("alertsList");
+            const badge = document.getElementById("alertBadge");
+
+            if (alertCounter === 0) {
+                const empty = list.querySelector('.alert-empty');
+                if (empty) empty.remove();
+            }
+
+            alertCounter++;
+            const displayCount = Math.min(alertCounter, 99);
+            badge.textContent = displayCount;
+
+            badge.className = 'badge-count';
+            if (type === 'bad') badge.classList.add('bad');
+            else if (type === 'warn') badge.classList.add('warn');
+            else badge.classList.add('ok');
+
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            const item = document.createElement("div");
+            let alertClass = "alert-item";
+            if (type === 'warn') alertClass += " warn-alert";
+            else if (type === 'ok') alertClass += " ok-alert";
+
+            item.className = alertClass;
+            item.innerHTML = `
+                <div class="alert-message">${message}</div>
+                <div class="timestamp">🕐 ${time}</div>
+            `;
+
+            list.prepend(item);
+
+            const items = list.querySelectorAll(".alert-item");
+            if (items.length > 20) {
+                items[items.length - 1].remove();
+            }
+        }
+
+        // ============================================================
+        //  ACTUALIZACIÓN DEL GRÁFICO (CORREGIDO)
+        // ============================================================
+        function updateChart(time, temp, ph, oxy) {
+            if (!time) return;
+
+            if (telemetryChart.data.labels.length >= maxChartPoints) {
+                telemetryChart.data.labels.shift();
+                telemetryChart.data.datasets.forEach(dataset => dataset.data.shift());
+            }
+
+            telemetryChart.data.labels.push(time);
+
+            // 🔥 USAR null en lugar de 0 para valores inválidos
+            telemetryChart.data.datasets[0].data.push(
+                (temp !== null && temp !== undefined && !isNaN(temp)) ? temp : null
+            );
+            telemetryChart.data.datasets[1].data.push(
+                (ph !== null && ph !== undefined && !isNaN(ph)) ? ph : null
+            );
+            telemetryChart.data.datasets[2].data.push(
+                (oxy !== null && oxy !== undefined && !isNaN(oxy)) ? oxy : null
+            );
+
+            telemetryChart.update('none');
+        }
+
+        // ============================================================
+        //  LIMPIAR GRÁFICO COMPLETAMENTE
+        // ============================================================
+        function clearChart() {
+            if (!telemetryChart) return;
+
+            telemetryChart.data.labels = [];
+            telemetryChart.data.datasets.forEach(dataset => {
+                dataset.data = [];
+            });
+            telemetryChart.update('none');
+
+            document.getElementById('chartStatus').textContent = '🗑️ Gráfico limpiado';
+            pushAlert('🗑️ Gráfico de datos limpiado manualmente', 'ok');
+        }
+
+        // ============================================================
+        //  WATCHDOG DE DATOS
+        // ============================================================
+        function resetDataWatchdog() {
+            clearTimeout(dataWatchdogTimer);
+            dataWatchdogTimer = setTimeout(() => {
+                if (Date.now() - systemHealth.lastDataTime > DATA_TIMEOUT_MS) {
+                    clearAllGaugesToOffline();
+                    evaluateOverallSystemStatus();
+                    pushAlert('⏰ Timeout: No se reciben datos del servidor', 'warn');
+                }
+            }, DATA_TIMEOUT_MS);
+        }
+
+        // ============================================================
+        //  LOADING OVERLAY
+        // ============================================================
+        function showLoading(active, text = 'Conectando...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const textEl = overlay.querySelector('.loading-text');
+            if (textEl) textEl.textContent = text;
+            overlay.classList.toggle('active', active);
+        }
+
+        // ============================================================
+        //  INICIALIZACIÓN
+        // ============================================================
+        console.log('🌊 SCADA - Calidad del Agua v2.1');
+        console.log('📡 Conectando a ThingsBoard...');
+        console.log('🔧 Características:');
+        console.log('  ✅ Manejo de datos nulos (null)');
+        console.log('  ✅ Limpieza automática del gráfico');
+        console.log('  ✅ Reinicio al reconectar');
+        console.log('  ✅ Indicadores de estado mejorados');
+    </script>
+</body>
+</html>
