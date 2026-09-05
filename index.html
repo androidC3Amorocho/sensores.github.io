@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Telemetría de calidad del agua</title>
+    <title>🌊 SCADA - Calidad del Agua</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
@@ -18,6 +18,8 @@
             --warn-color: #ffd000;
             --bad-color: #ff4d4d;
             --text-muted: #8892b0;
+            --border-color: #1e2942;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,75 +28,150 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: var(--bg-color);
             color: #fff;
-            padding: 12px;
+            padding: 15px;
             overflow-x: hidden;
+            min-height: 100vh;
         }
 
+        /* ===== HEADER ===== */
         header {
             display: flex;
             flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
-            max-width: 1300px;
-            margin: 0 auto 15px auto;
-            border-bottom: 1px solid #1e2942;
-            padding-bottom: 12px;
+            max-width: 1400px;
+            margin: 0 auto 20px auto;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 15px;
             gap: 10px;
         }
 
-        h2 { font-size: 1.25em; letter-spacing: 0.5px; }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-left h2 {
+            font-size: 1.3em;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #00e5ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-left .version {
+            font-size: 0.6em;
+            color: var(--text-muted);
+            background: var(--card-bg);
+            padding: 2px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
 
         .header-controls {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
+        }
+
+        .btn-action {
+            background: var(--card-bg);
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s ease;
+        }
+
+        .btn-action:hover {
+            background: var(--panel-bg);
+            border-color: var(--ok-color);
+            transform: scale(1.02);
+        }
+
+        .btn-action.muted {
+            border-color: var(--bad-color);
+            color: var(--bad-color);
         }
 
         .status-indicator {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             font-size: 0.8em;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 4px 10px;
-            border-radius: 12px;
+            background: var(--card-bg);
+            padding: 5px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
         }
 
         .dot {
-            width: 8px; height: 8px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             background-color: var(--bad-color);
-            box-shadow: 0 0 6px var(--bad-color);
+            box-shadow: 0 0 8px var(--bad-color);
+            transition: all 0.5s ease;
         }
 
         .dot.online {
             background-color: var(--ok-color);
-            box-shadow: 0 0 6px var(--ok-color);
+            box-shadow: 0 0 12px var(--ok-color);
+            animation: pulse-green 2s infinite;
         }
 
         .dot.warning {
             background-color: var(--warn-color);
-            box-shadow: 0 0 6px var(--warn-color);
+            box-shadow: 0 0 12px var(--warn-color);
+            animation: pulse-yellow 1.5s infinite;
         }
 
-        .btn-action {
-            background: #232d47;
-            color: #fff;
-            border: 1px solid #3b486b;
-            padding: 6px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8em;
+        .dot.bad {
+            background-color: var(--bad-color);
+            box-shadow: 0 0 12px var(--bad-color);
+            animation: pulse-red 1s infinite;
         }
 
-        .btn-action:hover { background: #2e3a59; }
+        .dot.offline {
+            background-color: #555;
+            box-shadow: none;
+            animation: none;
+        }
 
+        @keyframes pulse-green {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.8); }
+        }
+
+        @keyframes pulse-yellow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.9); }
+        }
+
+        .status-text {
+            font-weight: 500;
+        }
+
+        .status-text.online { color: var(--ok-color); }
+        .status-text.warning { color: var(--warn-color); }
+        .status-text.bad { color: var(--bad-color); }
+        .status-text.offline { color: var(--text-muted); }
+
+        /* ===== MAIN LAYOUT ===== */
         .main-layout {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 15px;
-            max-width: 1300px;
+            gap: 20px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -105,15 +182,16 @@
         .left-column {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 20px;
             width: 100%;
             min-width: 0;
         }
 
+        /* ===== GAUGES ===== */
         .gauges-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 15px;
+            gap: 20px;
             width: 100%;
         }
 
@@ -123,101 +201,226 @@
 
         .card {
             background: var(--card-bg);
-            border-radius: 12px;
-            padding: 15px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-            border: 1px solid #1e2942;
+            border-radius: 16px;
+            padding: 18px 15px 15px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             align-items: center;
-            width: 100%;
+            transition: border-color 0.5s ease;
+            position: relative;
+            overflow: hidden;
         }
 
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            transition: background 0.5s ease;
+        }
+
+        .card.status-ok::before { background: var(--ok-color); }
+        .card.status-warn::before { background: var(--warn-color); }
+        .card.status-bad::before { background: var(--bad-color); }
+        .card.status-offline::before { background: var(--text-muted); }
+
         .gauge-title {
-            font-size: 1.1em;
+            font-size: 1em;
             font-weight: 600;
             color: #00e5ff;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
             letter-spacing: 0.8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .gauge-title .unit-badge {
+            font-size: 0.6em;
+            color: var(--text-muted);
+            background: var(--panel-bg);
+            padding: 1px 8px;
+            border-radius: 8px;
         }
 
         .gauge-wrapper {
             width: 100%;
             max-width: 260px;
-            height: 160px;
+            height: 150px;
             position: relative;
         }
 
         .status-badge {
             margin-top: 5px;
-            padding: 6px 14px;
+            padding: 5px 16px;
             border-radius: 12px;
-            font-size: 0.85em;
-            font-weight: bold;
+            font-size: 0.8em;
+            font-weight: 600;
             text-align: center;
             width: 100%;
             max-width: 260px;
-            transition: all 0.3s ease;
+            transition: all 0.4s ease;
+            min-height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
 
-        /* Estilos de los estados */
-        .ok { background: rgba(0, 255, 136, 0.15); color: var(--ok-color); border: 1px solid var(--ok-color); }
-        .warn { background: rgba(255, 208, 0, 0.15); color: var(--warn-color); border: 1px solid var(--warn-color); }
-        .bad { background: rgba(255, 77, 77, 0.15); color: var(--bad-color); border: 1px solid var(--bad-color); }
-        .offline { background: rgba(255, 77, 77, 0.15); color: var(--bad-color); border: 1px solid var(--bad-color); }
+        .status-badge .icon {
+            font-size: 1em;
+        }
 
+        /* Estados del badge */
+        .status-badge.ok {
+            background: rgba(0, 255, 136, 0.12);
+            color: var(--ok-color);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .status-badge.warn {
+            background: rgba(255, 208, 0, 0.12);
+            color: var(--warn-color);
+            border: 1px solid rgba(255, 208, 0, 0.3);
+        }
+
+        .status-badge.bad {
+            background: rgba(255, 77, 77, 0.12);
+            color: var(--bad-color);
+            border: 1px solid rgba(255, 77, 77, 0.3);
+        }
+
+        .status-badge.offline {
+            background: rgba(136, 146, 176, 0.1);
+            color: var(--text-muted);
+            border: 1px solid rgba(136, 146, 176, 0.2);
+        }
+
+        /* ===== CHART ===== */
         .chart-card {
             background: var(--card-bg);
-            border-radius: 12px;
-            padding: 12px;
-            border: 1px solid #1e2942;
-            position: relative;
+            border-radius: 16px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
             width: 100%;
-            height: 250px;
+            height: 260px;
             min-width: 0;
+            position: relative;
         }
 
+        .chart-card .chart-title {
+            position: absolute;
+            top: 8px;
+            left: 15px;
+            font-size: 0.7em;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .chart-card .chart-status {
+            position: absolute;
+            top: 8px;
+            right: 15px;
+            font-size: 0.6em;
+            color: var(--text-muted);
+            background: var(--panel-bg);
+            padding: 2px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* ===== ALERTS PANEL ===== */
         .alerts-panel {
             background: var(--card-bg);
-            border: 1px solid #1e2942;
-            border-radius: 12px;
-            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
-            max-height: 300px;
+            max-height: 400px;
         }
 
         @media (min-width: 992px) {
-            .alerts-panel { max-height: 100%; }
+            .alerts-panel { max-height: 100%; min-height: 400px; }
         }
 
         .alerts-header {
             font-size: 0.9em;
-            font-weight: bold;
-            margin-bottom: 8px;
+            font-weight: 600;
+            margin-bottom: 10px;
             color: var(--text-muted);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .alerts-header .badge-count {
+            background: var(--bad-color);
+            color: #fff;
+            font-size: 0.7em;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+
+        .alerts-header .badge-count.warn {
+            background: var(--warn-color);
+            color: #000;
+        }
+
+        .alerts-header .badge-count.ok {
+            background: var(--ok-color);
+            color: #000;
         }
 
         .alerts-list {
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
+            flex: 1;
+            padding-right: 4px;
+        }
+
+        .alerts-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .alerts-list::-webkit-scrollbar-track {
+            background: var(--bg-color);
+            border-radius: 4px;
+        }
+
+        .alerts-list::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
         }
 
         .alert-item {
-            background: #1a2238;
+            background: var(--panel-bg);
             border-left: 3px solid var(--bad-color);
             padding: 6px 10px;
-            border-radius: 4px;
-            font-size: 0.8em;
+            border-radius: 6px;
+            font-size: 0.78em;
+            animation: slideIn 0.3s ease;
         }
 
         .alert-item.warn-alert {
             border-left-color: var(--warn-color);
+        }
+
+        .alert-item.ok-alert {
+            border-left-color: var(--ok-color);
+            opacity: 0.7;
         }
 
         .alert-item .timestamp {
@@ -225,111 +428,284 @@
             color: var(--text-muted);
             margin-top: 2px;
         }
+
+        .alert-item .alert-message {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .alert-empty {
+            color: var(--text-muted);
+            font-size: 0.8em;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ===== LOADING OVERLAY ===== */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(11, 15, 26, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--ok-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-muted);
+            font-size: 0.9em;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 480px) {
+            body { padding: 8px; }
+            .header-left h2 { font-size: 1em; }
+            .gauge-wrapper { max-width: 200px; height: 120px; }
+            .chart-card { height: 200px; }
+            .alerts-panel { max-height: 250px; }
+            .status-badge { font-size: 0.7em; }
+        }
     </style>
 </head>
 <body>
 
+    <!-- ===== LOADING OVERLAY ===== -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Conectando al servidor...</div>
+    </div>
+
+    <!-- ===== HEADER ===== -->
     <header>
-        <h2>🌊 Telemetría de calidad del agua</h2>
+        <div class="header-left">
+            <h2>🌊 SCADA - Calidad del Agua</h2>
+            <span class="version">v2.0</span>
+        </div>
         <div class="header-controls">
             <button id="btnMute" class="btn-action" onclick="toggleMute()">🔊 Sonido</button>
+            <button id="btnReconnect" class="btn-action" onclick="manualReconnect()" style="display:none;">🔄 Reconectar</button>
             <div class="status-indicator">
-                <div id="statusDot" class="dot"></div>
-                <span id="statusText">Autenticando...</span>
+                <div id="statusDot" class="dot offline"></div>
+                <span id="statusText" class="status-text offline">Inicializando...</span>
             </div>
         </div>
     </header>
 
+    <!-- ===== MAIN CONTENT ===== -->
     <div class="main-layout">
         <div class="left-column">
             <div class="gauges-grid">
-                <div class="card">
-                    <div class="gauge-title">Temperatura</div>
+                <!-- Temperatura -->
+                <div id="cardTemp" class="card status-offline">
+                    <div class="gauge-title">
+                        🌡️ Temperatura
+                        <span class="unit-badge">°C</span>
+                    </div>
                     <div class="gauge-wrapper"><div id="gaugeTemp"></div></div>
-                    <div id="statusTemp" class="status-badge offline">Desconectado</div>
+                    <div id="statusTemp" class="status-badge offline">
+                        <span class="icon">⏳</span> Esperando datos...
+                    </div>
                 </div>
-                <div class="card">
-                    <div class="gauge-title" style="color: #ffd000;">pH</div>
+
+                <!-- pH -->
+                <div id="cardPh" class="card status-offline">
+                    <div class="gauge-title" style="color: #ffd000;">
+                        🧪 pH
+                        <span class="unit-badge">pH</span>
+                    </div>
                     <div class="gauge-wrapper"><div id="gaugePh"></div></div>
-                    <div id="statusPh" class="status-badge offline">Desconectado</div>
+                    <div id="statusPh" class="status-badge offline">
+                        <span class="icon">⏳</span> Esperando datos...
+                    </div>
                 </div>
-                <div class="card">
-                    <div class="gauge-title" style="color: #00ff88;">Oxígeno disuelto</div>
+
+                <!-- Oxígeno -->
+                <div id="cardOxy" class="card status-offline">
+                    <div class="gauge-title" style="color: #00ff88;">
+                        💨 Oxígeno Disuelto
+                        <span class="unit-badge">mg/L</span>
+                    </div>
                     <div class="gauge-wrapper"><div id="gaugeOxy"></div></div>
-                    <div id="statusOxy" class="status-badge offline">Desconectado</div>
+                    <div id="statusOxy" class="status-badge offline">
+                        <span class="icon">⏳</span> Esperando datos...
+                    </div>
                 </div>
             </div>
 
+            <!-- Chart -->
             <div class="chart-card">
+                <span class="chart-title">📈 Historial de parámetros</span>
+                <span id="chartStatus" class="chart-status">Esperando datos...</span>
                 <canvas id="telemetryChart"></canvas>
             </div>
         </div>
 
+        <!-- Alerts Panel -->
         <div class="alerts-panel">
             <div class="alerts-header">
-                <span>⚠️ Registro de alertas</span>
-                <small id="alertCount">0</small>
+                <span>🚨 Registro de eventos</span>
+                <span id="alertBadge" class="badge-count ok">0</span>
             </div>
             <div id="alertsList" class="alerts-list">
-                <div style="color: var(--text-muted); font-size: 0.8em; text-align: center; margin-top: 15px;">
-                    Sin eventos.
-                </div>
+                <div class="alert-empty">✅ Sin eventos registrados</div>
             </div>
         </div>
     </div>
 
     <script>
+        // ============================================================
+        //  CONFIGURACIÓN
+        // ============================================================
         const TB_HOST = "thingsboard.cloud";
         const DEVICE_ID = "0d580f10-a62d-11f1-9b46-e7fbeb690c95";
-        
         const TB_USER = "scada-viewer@tuempresa.com";
         const TB_PASSWORD = "9b46-e7fbeb690c95";
 
+        // ===== UMBRALES OPTIMIZADOS =====
+        const THRESHOLDS = {
+            temperature: {
+                minWarn: 5,
+                minOk: 10,
+                maxOk: 35,
+                maxWarn: 40,
+                unit: '°C',
+                label: 'Temperatura'
+            },
+            ph: {
+                minWarn: 5.0,
+                minOk: 6.0,
+                maxOk: 8.5,
+                maxWarn: 9.5,
+                unit: '',
+                label: 'pH'
+            },
+            oxygen: {
+                minWarn: 2.0,
+                minOk: 4.0,
+                maxOk: 10.0,
+                maxWarn: 12.0,
+                unit: 'mg/L',
+                label: 'Oxígeno'
+            }
+        };
+
+        // ===== VARIABLES GLOBALES =====
         let gaugeTemp, gaugePh, gaugeOxy, telemetryChart;
         let jwtToken = null;
         let webSocket = null;
         let alertCounter = 0;
         let isMuted = false;
-        const maxChartPoints = 15;
+        let isConnected = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 10;
+        const maxChartPoints = 20;
 
         let dataWatchdogTimer = null;
-        const DATA_TIMEOUT_MS = 20000;
+        const DATA_TIMEOUT_MS = 25000;
 
+        // Estado de salud del sistema
         const systemHealth = {
             wsConnected: false,
             tempValid: false,
             phValid: false,
-            oxyValid: false
+            oxyValid: false,
+            lastDataTime: 0
         };
 
         const previousStates = { Temp: null, Ph: null, Oxy: null };
 
         let audioCtx = null;
 
+        // ============================================================
+        //  FUNCIONES DE AUDIO
+        // ============================================================
         function playAlarmSound() {
             if (isMuted) return;
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            } catch (e) {
+                console.warn('Audio no disponible:', e);
             }
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playOkSound() {
+            if (isMuted) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(660, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            } catch (e) {
+                // Silencioso
+            }
         }
 
         function toggleMute() {
             isMuted = !isMuted;
-            document.getElementById("btnMute").innerText = isMuted ? "🔇 Silenciado" : "🔊 Sonido";
+            const btn = document.getElementById("btnMute");
+            btn.innerText = isMuted ? "🔇 Silenciado" : "🔊 Sonido";
+            btn.classList.toggle('muted', isMuted);
         }
 
+        // ============================================================
+        //  INICIALIZACIÓN
+        // ============================================================
         window.onload = async () => {
+            showLoading(true, "Inicializando dashboard...");
             initGauges();
             initChart();
             await loginAndConnect();
@@ -337,19 +713,45 @@
 
         function initGauges() {
             gaugeTemp = new JustGage({
-                id: "gaugeTemp", value: 0, min: 0, max: 50, label: "°C",
-                gaugeColor: "#1e2942", levelColors: ["#00e5ff", "#00ff88", "#ff4d4d"],
-                valueFontColor: "#fff", labelFontColor: "#8892b0"
+                id: "gaugeTemp",
+                value: 0,
+                min: -10,
+                max: 50,
+                label: "°C",
+                gaugeColor: "#1e2942",
+                levelColors: ["#ff4d4d", "#ffd000", "#00ff88", "#ffd000", "#ff4d4d"],
+                valueFontColor: "#fff",
+                labelFontColor: "#8892b0",
+                shadowOpacity: 0.3,
+                valueFontSize: 40
             });
+
             gaugePh = new JustGage({
-                id: "gaugePh", value: 0, min: 0, max: 14, label: "pH",
-                gaugeColor: "#1e2942", levelColors: ["#ff4d4d", "#00ff88", "#ff4d4d"],
-                valueFontColor: "#fff", labelFontColor: "#8892b0"
+                id: "gaugePh",
+                value: 0,
+                min: 0,
+                max: 14,
+                label: "pH",
+                gaugeColor: "#1e2942",
+                levelColors: ["#ff4d4d", "#ffd000", "#00ff88", "#ffd000", "#ff4d4d"],
+                valueFontColor: "#fff",
+                labelFontColor: "#8892b0",
+                shadowOpacity: 0.3,
+                valueFontSize: 40
             });
+
             gaugeOxy = new JustGage({
-                id: "gaugeOxy", value: 0, min: 0, max: 12, label: "mg/L",
-                gaugeColor: "#1e2942", levelColors: ["#ff4d4d", "#ffd000", "#00ff88"],
-                valueFontColor: "#fff", labelFontColor: "#8892b0"
+                id: "gaugeOxy",
+                value: 0,
+                min: 0,
+                max: 15,
+                label: "mg/L",
+                gaugeColor: "#1e2942",
+                levelColors: ["#ff4d4d", "#ffd000", "#00ff88", "#ffd000", "#ff4d4d"],
+                valueFontColor: "#fff",
+                labelFontColor: "#8892b0",
+                shadowOpacity: 0.3,
+                valueFontSize: 40
             });
         }
 
@@ -360,24 +762,77 @@
                 data: {
                     labels: [],
                     datasets: [
-                        { label: 'Temperatura (°C)', borderColor: '#00e5ff', data: [], tension: 0.3, pointRadius: 2, spanGaps: false },
-                        { label: 'pH', borderColor: '#ffd000', data: [], tension: 0.3, pointRadius: 2, spanGaps: false },
-                        { label: 'Oxígeno (mg/L)', borderColor: '#00ff88', data: [], tension: 0.3, pointRadius: 2, spanGaps: false }
+                        {
+                            label: 'Temperatura (°C)',
+                            borderColor: '#00e5ff',
+                            backgroundColor: 'rgba(0, 229, 255, 0.05)',
+                            data: [],
+                            tension: 0.3,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#00e5ff',
+                            spanGaps: false,
+                            fill: true
+                        },
+                        {
+                            label: 'pH',
+                            borderColor: '#ffd000',
+                            backgroundColor: 'rgba(255, 208, 0, 0.05)',
+                            data: [],
+                            tension: 0.3,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#ffd000',
+                            spanGaps: false,
+                            fill: true
+                        },
+                        {
+                            label: 'Oxígeno (mg/L)',
+                            borderColor: '#00ff88',
+                            backgroundColor: 'rgba(0, 255, 136, 0.05)',
+                            data: [],
+                            tension: 0.3,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#00ff88',
+                            spanGaps: false,
+                            fill: true
+                        }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {
-                        x: { ticks: { color: '#8892b0', font: { size: 10 } }, grid: { color: '#1e2942' } },
-                        y: { ticks: { color: '#8892b0', font: { size: 10 } }, grid: { color: '#1e2942' } }
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
                     },
-                    plugins: { legend: { labels: { color: '#fff', font: { size: 11 }, boxWidth: 12 } } }
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0', font: { size: 9 } },
+                            grid: { color: 'rgba(30, 41, 66, 0.3)' }
+                        },
+                        y: {
+                            ticks: { color: '#8892b0', font: { size: 9 } },
+                            grid: { color: 'rgba(30, 41, 66, 0.3)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#8892b0',
+                                font: { size: 10 },
+                                boxWidth: 12,
+                                padding: 8
+                            }
+                        }
+                    }
                 }
             });
         }
 
+        // ============================================================
+        //  AUTENTICACIÓN Y WEBSOCKET
+        // ============================================================
         async function loginAndConnect() {
+            showLoading(true, "Autenticando en ThingsBoard...");
             try {
                 const loginRes = await fetch(`https://${TB_HOST}/api/auth/login`, {
                     method: 'POST',
@@ -385,19 +840,30 @@
                     body: JSON.stringify({ username: TB_USER, password: TB_PASSWORD })
                 });
 
-                if (!loginRes.ok) throw new Error("Credenciales inválidas o error de autenticación");
+                if (!loginRes.ok) {
+                    throw new Error(`HTTP ${loginRes.status}: ${loginRes.statusText}`);
+                }
 
                 const loginData = await loginRes.json();
                 jwtToken = loginData.token;
 
-                updateStatus('warning', "Conectando al servidor...");
+                updateStatus('warning', "Conectando WebSocket...");
                 connectWebSocket(jwtToken);
 
             } catch (err) {
+                console.error("Error de autenticación:", err);
                 systemHealth.wsConnected = false;
                 clearAllGaugesToOffline();
-                updateStatus('bad', "Error de autenticación");
-                console.error("Error en inicio de sesión:", err);
+                updateStatus('bad', `Error: ${err.message}`);
+                showLoading(false);
+                document.getElementById('btnReconnect').style.display = 'inline-block';
+
+                // Reintentar automáticamente después de 10s
+                setTimeout(() => {
+                    if (!systemHealth.wsConnected) {
+                        loginAndConnect();
+                    }
+                }, 10000);
             }
         }
 
@@ -407,7 +873,11 @@
 
             webSocket.onopen = () => {
                 systemHealth.wsConnected = true;
+                reconnectAttempts = 0;
+                document.getElementById('btnReconnect').style.display = 'none';
+                showLoading(false);
                 updateStatus('warning', "Esperando telemetría...");
+
                 const subCmd = {
                     tsSubCmds: [
                         {
@@ -422,32 +892,130 @@
             };
 
             webSocket.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-                if (msg.data) {
-                    resetDataWatchdog();
-                    processTelemetry(msg.data);
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.data) {
+                        resetDataWatchdog();
+                        processTelemetry(msg.data);
+                    }
+                } catch (e) {
+                    console.warn("Error procesando mensaje:", e);
                 }
             };
 
-            webSocket.onclose = () => {
+            webSocket.onclose = (event) => {
                 systemHealth.wsConnected = false;
                 clearTimeout(dataWatchdogTimer);
                 clearAllGaugesToOffline();
-                updateStatus('bad', "Servidor desconectado - reconectando...");
-                setTimeout(loginAndConnect, 5000);
+                updateStatus('bad', "Servidor desconectado");
+                showLoading(false);
+
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    reconnectAttempts++;
+                    const delay = Math.min(5000 * reconnectAttempts, 30000);
+                    updateStatus('warning', `Reconectando en ${delay/1000}s... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+                    setTimeout(loginAndConnect, delay);
+                } else {
+                    updateStatus('bad', "Error crítico - reinicie manualmente");
+                    document.getElementById('btnReconnect').style.display = 'inline-block';
+                }
             };
 
-            webSocket.onerror = (err) => console.error("Error en WebSocket:", err);
+            webSocket.onerror = (err) => {
+                console.error("WebSocket error:", err);
+                // No cerrar inmediatamente, dejar que onclose maneje la reconexión
+            };
         }
 
-        function resetDataWatchdog() {
-            clearTimeout(dataWatchdogTimer);
-            dataWatchdogTimer = setTimeout(() => {
-                clearAllGaugesToOffline();
-                evaluateOverallSystemStatus();
-            }, DATA_TIMEOUT_MS);
+        function manualReconnect() {
+            reconnectAttempts = 0;
+            document.getElementById('btnReconnect').style.display = 'none';
+            showLoading(true, "Reconectando manualmente...");
+            if (webSocket) {
+                try { webSocket.close(); } catch(e) {}
+            }
+            loginAndConnect();
         }
 
+        // ============================================================
+        //  PROCESAMIENTO DE TELEMETRÍA
+        // ============================================================
+        function processTelemetry(data) {
+            const timeStr = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            systemHealth.lastDataTime = Date.now();
+
+            let tempVal = null, phVal = null, oxyVal = null;
+
+            // ---- Temperatura ----
+            if (data.temperature && Array.isArray(data.temperature) && data.temperature.length > 0) {
+                tempVal = parseFloat(data.temperature[0][1]);
+                systemHealth.tempValid = isValidValue(tempVal, -50, 100);
+                if (systemHealth.tempValid) {
+                    gaugeTemp.refresh(tempVal);
+                    checkLimits('Temp', 'temperatura', tempVal, THRESHOLDS.temperature);
+                } else {
+                    gaugeTemp.refresh(0);
+                    setSensorBadgeOffline('Temp', 'Temperatura');
+                }
+            }
+
+            // ---- pH ----
+            if (data.ph && Array.isArray(data.ph) && data.ph.length > 0) {
+                phVal = parseFloat(data.ph[0][1]);
+                systemHealth.phValid = isValidValue(phVal, 0, 14);
+                if (systemHealth.phValid) {
+                    gaugePh.refresh(phVal);
+                    checkLimits('Ph', 'pH', phVal, THRESHOLDS.ph);
+                } else {
+                    gaugePh.refresh(0);
+                    setSensorBadgeOffline('Ph', 'pH');
+                }
+            }
+
+            // ---- Oxígeno ----
+            if (data.oxygen && Array.isArray(data.oxygen) && data.oxygen.length > 0) {
+                oxyVal = parseFloat(data.oxygen[0][1]);
+                systemHealth.oxyValid = isValidValue(oxyVal, 0, 20);
+                if (systemHealth.oxyValid) {
+                    gaugeOxy.refresh(oxyVal);
+                    checkLimits('Oxy', 'Oxígeno', oxyVal, THRESHOLDS.oxygen);
+                } else {
+                    gaugeOxy.refresh(0);
+                    setSensorBadgeOffline('Oxy', 'Oxígeno');
+                }
+            }
+
+            // Actualizar estado general
+            evaluateOverallSystemStatus();
+
+            // Actualizar gráfico
+            const chartTemp = systemHealth.tempValid ? tempVal : null;
+            const chartPh = systemHealth.phValid ? phVal : null;
+            const chartOxy = systemHealth.oxyValid ? oxyVal : null;
+            updateChart(timeStr, chartTemp, chartPh, chartOxy);
+
+            // Actualizar contador de datos en chart
+            document.getElementById('chartStatus').textContent =
+                `📊 ${telemetryChart.data.labels.length} puntos`;
+        }
+
+        function isValidValue(val, min, max) {
+            return val !== null &&
+                   val !== undefined &&
+                   !isNaN(val) &&
+                   isFinite(val) &&
+                   val >= min &&
+                   val <= max;
+        }
+
+        // ============================================================
+        //  LIMPIEZA DE GAUGES (OFFLINE)
+        // ============================================================
         function clearAllGaugesToOffline() {
             systemHealth.tempValid = false;
             systemHealth.phValid = false;
@@ -457,167 +1025,12 @@
             if (gaugePh) gaugePh.refresh(0);
             if (gaugeOxy) gaugeOxy.refresh(0);
 
-            setSensorBadgeOffline("Temp", "temperatura");
-            setSensorBadgeOffline("Ph", "pH");
-            setSensorBadgeOffline("Oxy", "oxígeno");
-        }
+            setSensorBadgeOffline('Temp', 'Temperatura');
+            setSensorBadgeOffline('Ph', 'pH');
+            setSensorBadgeOffline('Oxy', 'Oxígeno');
 
-        function setSensorBadgeOffline(idSuffix, name) {
-            const badge = document.getElementById(`status${idSuffix}`);
-            badge.innerText = "Desconectado";
-            badge.className = "status-badge offline";
-
-            if (previousStates[idSuffix] !== 'offline') {
-                pushAlert(`Sensor de ${name} apagado o sin señal`, 'bad');
-                playAlarmSound();
-                previousStates[idSuffix] = 'offline';
-            }
-        }
-
-        function updateStatus(state, text) {
-            const dot = document.getElementById("statusDot");
-            document.getElementById("statusText").innerText = text;
-            
-            dot.className = "dot";
-            if (state === 'online') dot.classList.add("online");
-            else if (state === 'warning') dot.classList.add("warning");
-        }
-
-        function processTelemetry(data) {
-            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            let tempVal = null, phVal = null, oxyVal = null;
-
-            if (data.temperature) {
-                tempVal = parseFloat(data.temperature[0][1]);
-                systemHealth.tempValid = (tempVal !== -127 && !isNaN(tempVal) && tempVal !== null);
-                if (systemHealth.tempValid) {
-                    gaugeTemp.refresh(tempVal > 0 ? tempVal : 0);
-                    checkLimits("Temp", "temperatura", tempVal, 18, 20, 28, 32, "°C");
-                } else {
-                    gaugeTemp.refresh(0);
-                    setSensorBadgeOffline("Temp", "temperatura");
-                }
-            }
-
-            if (data.ph) {
-                phVal = parseFloat(data.ph[0][1]);
-                systemHealth.phValid = (phVal >= 0 && !isNaN(phVal) && phVal !== null);
-                if (systemHealth.phValid) {
-                    gaugePh.refresh(phVal);
-                    checkLimits("Ph", "pH", phVal, 6.0, 6.5, 8.5, 9.0, "");
-                } else {
-                    gaugePh.refresh(0);
-                    setSensorBadgeOffline("Ph", "pH");
-                }
-            }
-
-            if (data.oxygen) {
-                oxyVal = parseFloat(data.oxygen[0][1]);
-                systemHealth.oxyValid = (oxyVal >= 0 && !isNaN(oxyVal) && oxyVal !== null);
-                if (systemHealth.oxyValid) {
-                    gaugeOxy.refresh(oxyVal);
-                    checkLimits("Oxy", "oxígeno", oxyVal, 3.0, 5.0, 12.0, 15.0, "mg/L");
-                } else {
-                    gaugeOxy.refresh(0);
-                    setSensorBadgeOffline("Oxy", "oxígeno");
-                }
-            }
-
-            evaluateOverallSystemStatus();
-
-            const chartTemp = systemHealth.tempValid ? tempVal : null;
-            const chartPh = systemHealth.phValid ? phVal : null;
-            const chartOxy = systemHealth.oxyValid ? oxyVal : null;
-
-            updateChart(timeStr, chartTemp, chartPh, chartOxy);
-        }
-
-        function evaluateOverallSystemStatus() {
-            if (!systemHealth.wsConnected) {
-                updateStatus('bad', "Servidor desconectado");
-                return;
-            }
-
-            const allSensorsOffline = !systemHealth.tempValid && !systemHealth.phValid && !systemHealth.oxyValid;
-            const partialSensorError = !systemHealth.tempValid || !systemHealth.phValid || !systemHealth.oxyValid;
-
-            if (allSensorsOffline) {
-                updateStatus('warning', "Sensores apagados o sin datos");
-            } else if (partialSensorError) {
-                updateStatus('warning', "Falla parcial de sensores");
-            } else {
-                updateStatus('online', "Sistema en vivo");
-            }
-        }
-
-        function updateChart(time, temp, ph, oxy) {
-            if (telemetryChart.data.labels.length >= maxChartPoints) {
-                telemetryChart.data.labels.shift();
-                telemetryChart.data.datasets.forEach(dataset => dataset.data.shift());
-            }
-
-            telemetryChart.data.labels.push(time);
-            telemetryChart.data.datasets[0].data.push(temp);
-            telemetryChart.data.datasets[1].data.push(ph);
-            telemetryChart.data.datasets[2].data.push(oxy);
-            telemetryChart.update();
-        }
-
-        function checkLimits(idSuffix, name, val, minWarn, minOk, maxOk, maxWarn, unit) {
-            const badge = document.getElementById(`status${idSuffix}`);
-            let currentState = 'ok';
-            const formattedVal = val.toFixed(1);
-
-            if (val >= minOk && val <= maxOk) {
-                badge.innerText = `OK (${formattedVal} ${unit})`.trim();
-                badge.className = "status-badge ok";
-                currentState = 'ok';
-            } else if ((val >= minWarn && val < minOk) || (val > maxOk && val <= maxWarn)) {
-                badge.innerText = `Advertencia (${formattedVal} ${unit})`.trim();
-                badge.className = "status-badge warn";
-                currentState = 'warn';
-                
-                if (previousStates[idSuffix] !== currentState) {
-                    pushAlert(`Advertencia en ${name}: ${formattedVal} ${unit}`.trim(), 'warn');
-                }
-            } else {
-                badge.innerText = `Crítico (${formattedVal} ${unit})`.trim();
-                badge.className = "status-badge bad";
-                currentState = 'bad';
-                
-                if (previousStates[idSuffix] !== currentState) {
-                    pushAlert(`Alerta crítica en ${name}: ${formattedVal} ${unit}`.trim(), 'bad');
-                    playAlarmSound();
-                }
-            }
-
-            previousStates[idSuffix] = currentState;
-        }
-
-        function pushAlert(message, type = 'bad') {
-            const list = document.getElementById("alertsList");
-            const count = document.getElementById("alertCount");
-
-            if (alertCounter === 0) list.innerHTML = "";
-            alertCounter++;
-            count.innerText = Math.min(alertCounter, 10);
-
-            const time = new Date().toLocaleTimeString();
-            const item = document.createElement("div");
-            
-            let alertClass = "alert-item";
-            if (type === 'warn') alertClass += " warn-alert";
-
-            item.className = alertClass;
-            item.innerHTML = `<div><strong>${message}</strong></div><div class="timestamp">${time}</div>`;
-
-            list.prepend(item);
-
-            const items = list.querySelectorAll(".alert-item");
-            if (items.length > 10) {
-                items[items.length - 1].remove();
-            }
-        }
-    </script>
-</body>
-</html>
+            // Limpiar el gráfico si no hay datos por mucho tiempo
+            if (Date.now() - systemHealth.lastDataTime > 60000) {
+                if (telemetryChart && telemetryChart.data.labels.length > 0) {
+                    // No limpiar completamente, solo marcar como sin datos
+                    document.getElementById('chartStatus
