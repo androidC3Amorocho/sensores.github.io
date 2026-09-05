@@ -342,131 +342,126 @@
         }
 
         /* ===== ALERTS PANEL ===== */
-.alerts-panel {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 15px;
-    box-shadow: var(--shadow);
-    display: flex;
-    flex-direction: column;
-    max-height: 350px;
-    min-height: 200px;
-    overflow: hidden;
-}
+        .alerts-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            max-height: 350px;
+            min-height: 200px;
+            overflow: hidden;
+        }
 
-@media (min-width: 992px) {
-    .alerts-panel { max-height: 100%; min-height: 400px; }
-}
+        @media (min-width: 992px) {
+            .alerts-panel { max-height: 100%; min-height: 400px; }
+        }
 
-.alerts-header {
-    font-size: 0.9em;
-    font-weight: 600;
-    margin-bottom: 10px;
-    color: var(--text-muted);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 8px;
-    flex-shrink: 0;
-}
+        .alerts-header {
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            flex-shrink: 0;
+        }
 
-.alerts-header-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
+        .alerts-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-.alerts-header .badge-count {
-    background: var(--bad-color);
-    color: #fff;
-    font-size: 0.7em;
-    padding: 1px 10px;
-    border-radius: 12px;
-    font-weight: 700;
-    min-width: 20px;
-    text-align: center;
-}
+        .alerts-header .badge-count {
+            background: var(--bad-color);
+            color: #fff;
+            font-size: 0.7em;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
 
-.alerts-header .badge-count.warn {
-    background: var(--warn-color);
-    color: #000;
-}
+        .alerts-header .badge-count.warn {
+            background: var(--warn-color);
+            color: #000;
+        }
 
-.alerts-header .badge-count.ok {
-    background: var(--ok-color);
-    color: #000;
-}
+        .alerts-header .badge-count.ok {
+            background: var(--ok-color);
+            color: #000;
+        }
 
-.alerts-list {
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1;
-    padding-right: 4px;
-    max-height: 280px;
-    min-height: 80px;
-}
+        .alerts-list {
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            padding-right: 4px;
+            max-height: 280px;
+            min-height: 80px;
+        }
 
-.alerts-list::-webkit-scrollbar {
-    width: 4px;
-}
+        .alerts-list::-webkit-scrollbar {
+            width: 4px;
+        }
 
-.alerts-list::-webkit-scrollbar-track {
-    background: var(--bg-color);
-    border-radius: 4px;
-}
+        .alerts-list::-webkit-scrollbar-track {
+            background: var(--bg-color);
+            border-radius: 4px;
+        }
 
-.alerts-list::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 4px;
-}
+        .alerts-list::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
 
-.alert-item {
-    background: var(--panel-bg);
-    border-left: 3px solid var(--bad-color);
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 0.78em;
-    animation: slideIn 0.3s ease;
-    flex-shrink: 0;
-}
+        .alert-item {
+            background: var(--panel-bg);
+            border-left: 3px solid var(--bad-color);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.78em;
+            animation: slideIn 0.3s ease;
+            flex-shrink: 0;
+        }
 
-.alert-item.warn-alert {
-    border-left-color: var(--warn-color);
-}
+        .alert-item.warn-alert {
+            border-left-color: var(--warn-color);
+        }
 
-.alert-item.ok-alert {
-    border-left-color: var(--ok-color);
-    opacity: 0.7;
-}
+        .alert-item.ok-alert {
+            border-left-color: var(--ok-color);
+            opacity: 0.7;
+        }
 
-.alert-item .timestamp {
-    font-size: 0.7em;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
+        .alert-item .timestamp {
+            font-size: 0.7em;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
 
-.alert-item .alert-message {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    word-break: break-word;
-}
+        .alert-item .alert-message {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            word-break: break-word;
+        }
 
-.alert-empty {
-    color: var(--text-muted);
-    font-size: 0.8em;
-    text-align: center;
-    padding: 20px 0;
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: translateX(-20px); }
-    to { opacity: 1; transform: translateX(0); }
-}
+        .alert-empty {
+            color: var(--text-muted);
+            font-size: 0.8em;
+            text-align: center;
+            padding: 20px 0;
+        }
 
         @keyframes slideIn {
             from { opacity: 0; transform: translateX(-20px); }
@@ -598,19 +593,20 @@
 
         <!-- Alerts Panel -->
         <div class="alerts-panel">
-    <div class="alerts-header">
-        <div class="alerts-header-left">
-            <span>🚨 Registro de eventos</span>
-            <span id="alertBadge" class="badge-count ok">0</span>
+            <div class="alerts-header">
+                <div class="alerts-header-left">
+                    <span>🚨 Registro de eventos</span>
+                    <span id="alertBadge" class="badge-count ok">0</span>
+                </div>
+                <button id="btnClearAlerts" class="btn-action" style="font-size:0.7em; padding:2px 10px;">
+                    🗑️ Limpiar
+                </button>
+            </div>
+            <div id="alertsList" class="alerts-list">
+                <div class="alert-empty">✅ Sin eventos registrados</div>
+            </div>
         </div>
-        <button id="btnClearAlerts" class="btn-action" onclick="clearAlerts()" style="font-size:0.7em; padding:2px 10px;">
-            🗑️ Limpiar
-        </button>
     </div>
-    <div id="alertsList" class="alerts-list">
-        <div class="alert-empty">✅ Sin eventos registrados</div>
-    </div>
-</div>
 
     <script>
         // ============================================================
@@ -738,6 +734,10 @@
             showLoading(true, "Inicializando dashboard...");
             initGauges();
             initChart();
+            
+            // Inicializar botón de limpieza de alertas
+            initClearAlertsButton();
+            
             await loginAndConnect();
         };
 
@@ -856,6 +856,27 @@
                     }
                 }
             });
+        }
+
+        // ============================================================
+        //  INICIALIZAR BOTÓN DE LIMPIEZA DE ALERTAS
+        // ============================================================
+        function initClearAlertsButton() {
+            const clearBtn = document.getElementById('btnClearAlerts');
+            if (clearBtn) {
+                // Remover event listeners antiguos (si los hay)
+                const newBtn = clearBtn.cloneNode(true);
+                clearBtn.parentNode.replaceChild(newBtn, clearBtn);
+                
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('🧹 Limpiando alertas desde el botón');
+                    clearAlerts();
+                });
+                console.log('✅ Botón de limpieza de alertas inicializado');
+            } else {
+                console.error('❌ Botón de limpieza de alertas no encontrado');
+            }
         }
 
         // ============================================================
@@ -1082,7 +1103,6 @@
             setSensorBadgeOffline('Ph', 'pH');
             setSensorBadgeOffline('Oxy', 'Oxígeno');
 
-            // 🔥 LIMPIAR GRÁFICO CUANDO NO HAY DATOS
             clearChart();
             document.getElementById('chartStatus').textContent = '⏳ Sin datos - sensores offline';
         }
@@ -1196,83 +1216,89 @@
         }
 
         // ============================================================
-        //  ALERTAS
+        //  ALERTAS - LIMITADO A 10 ITEMS
         // ============================================================
-       // ============================================================
-//  ALERTAS - LIMITADO A 10 ITEMS CON BOTÓN DE LIMPIEZA
-// ============================================================
-function pushAlert(message, type = 'bad') {
-    const list = document.getElementById("alertsList");
-    const badge = document.getElementById("alertBadge");
+        function pushAlert(message, type = 'bad') {
+            const list = document.getElementById("alertsList");
+            const badge = document.getElementById("alertBadge");
 
-    // Eliminar mensaje vacío si existe
-    if (alertCounter === 0) {
-        const empty = list.querySelector('.alert-empty');
-        if (empty) empty.remove();
-    }
+            if (alertCounter === 0) {
+                const empty = list.querySelector('.alert-empty');
+                if (empty) empty.remove();
+            }
 
-    alertCounter++;
-    // 🔥 LIMITAR EL CONTADOR A 10
-    const displayCount = Math.min(alertCounter, 10);
-    badge.textContent = displayCount;
+            alertCounter++;
+            const displayCount = Math.min(alertCounter, 10);
+            badge.textContent = displayCount;
 
-    // Color del badge según el tipo
-    badge.className = 'badge-count';
-    if (type === 'bad') badge.classList.add('bad');
-    else if (type === 'warn') badge.classList.add('warn');
-    else badge.classList.add('ok');
+            badge.className = 'badge-count';
+            if (type === 'bad') badge.classList.add('bad');
+            else if (type === 'warn') badge.classList.add('warn');
+            else badge.classList.add('ok');
 
-    const time = new Date().toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
-    });
+            const time = new Date().toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
 
-    const item = document.createElement("div");
-    let alertClass = "alert-item";
-    if (type === 'warn') alertClass += " warn-alert";
-    else if (type === 'ok') alertClass += " ok-alert";
+            const item = document.createElement("div");
+            let alertClass = "alert-item";
+            if (type === 'warn') alertClass += " warn-alert";
+            else if (type === 'ok') alertClass += " ok-alert";
 
-    item.className = alertClass;
-    item.innerHTML = `
-        <div class="alert-message">${message}</div>
-        <div class="timestamp">🕐 ${time}</div>
-    `;
+            item.className = alertClass;
+            item.innerHTML = `
+                <div class="alert-message">${message}</div>
+                <div class="timestamp">🕐 ${time}</div>
+            `;
 
-    list.prepend(item);
+            list.prepend(item);
 
-    // 🔥 MANTENER EXACTAMENTE 10 ITEMS
-    const items = list.querySelectorAll(".alert-item");
-    while (items.length > 10) {
-        items[items.length - 1].remove();
-    }
+            const items = list.querySelectorAll(".alert-item");
+            while (items.length > 10) {
+                items[items.length - 1].remove();
+            }
 
-    // Si no hay items, mostrar mensaje vacío
-    if (items.length === 0) {
-        const empty = document.createElement("div");
-        empty.className = "alert-empty";
-        empty.textContent = "✅ Sin eventos registrados";
-        list.appendChild(empty);
-    }
-}
+            if (items.length === 0) {
+                const empty = document.createElement("div");
+                empty.className = "alert-empty";
+                empty.textContent = "✅ Sin eventos registrados";
+                list.appendChild(empty);
+            }
+        }
 
-// ============================================================
-//  LIMPIAR ALERTAS
-// ============================================================
-function clearAlerts() {
-    const list = document.getElementById("alertsList");
-    const badge = document.getElementById("alertBadge");
-    
-    // Limpiar la lista
-    list.innerHTML = '<div class="alert-empty">✅ Sin eventos registrados</div>';
-    
-    // Resetear contador
-    alertCounter = 0;
-    badge.textContent = "0";
-    badge.className = "badge-count ok";
-}
         // ============================================================
-        //  ACTUALIZACIÓN DEL GRÁFICO (CORREGIDO)
+        //  LIMPIAR ALERTAS
+        // ============================================================
+        function clearAlerts() {
+            console.log('🧹 Limpiando alertas...');
+            
+            const list = document.getElementById("alertsList");
+            const badge = document.getElementById("alertBadge");
+            
+            if (!list) {
+                console.error('❌ No se encontró la lista de alertas');
+                return;
+            }
+            
+            list.innerHTML = '<div class="alert-empty">✅ Sin eventos registrados</div>';
+            
+            alertCounter = 0;
+            
+            if (badge) {
+                badge.textContent = "0";
+                badge.className = "badge-count ok";
+            }
+            
+            console.log('✅ Alertas limpiadas correctamente');
+        }
+
+        // Exponer función globalmente
+        window.clearAlerts = clearAlerts;
+
+        // ============================================================
+        //  ACTUALIZACIÓN DEL GRÁFICO
         // ============================================================
         function updateChart(time, temp, ph, oxy) {
             if (!time) return;
@@ -1284,7 +1310,6 @@ function clearAlerts() {
 
             telemetryChart.data.labels.push(time);
 
-            // 🔥 USAR null en lugar de 0 para valores inválidos
             telemetryChart.data.datasets[0].data.push(
                 (temp !== null && temp !== undefined && !isNaN(temp)) ? temp : null
             );
@@ -1299,7 +1324,7 @@ function clearAlerts() {
         }
 
         // ============================================================
-        //  LIMPIAR GRÁFICO COMPLETAMENTE
+        //  LIMPIAR GRÁFICO
         // ============================================================
         function clearChart() {
             if (!telemetryChart) return;
@@ -1348,6 +1373,7 @@ function clearAlerts() {
         console.log('  ✅ Limpieza automática del gráfico');
         console.log('  ✅ Reinicio al reconectar');
         console.log('  ✅ Indicadores de estado mejorados');
+        console.log('  ✅ Botón de limpieza de alertas');
     </script>
 </body>
 </html>
