@@ -662,12 +662,15 @@
         const systemHealth = {
             wsConnected: false,
             tempValid: false,
-            phValid: true,   // Inicializado como conectado para pH
-            oxyValid: true,  // Inicializado como conectado para Oxígeno
+            phValid: true,
+            oxyValid: true,
             lastDataTime: 0
         };
 
-        const previousStates = { Temp: null, Ph: null, Oxy: null };
+        // Valores actuales de los sensores emulados y de temperatura de ThingsBoard
+        let currentEmulatedPh = 8.0;
+        let currentEmulatedOxy = 4.0;
+        let latestTempVal = 25.0; // Valor seguro por defecto para la temperatura inicial
 
         let audioCtx = null;
 
@@ -735,10 +738,13 @@
             initGauges();
             initChart();
             
+            // Cargar datos previos guardados en localStorage si existen
+            loadChartFromLocalStorage();
+            
             // Inicializar botón de limpieza de alertas
             initClearAlertsButton();
             
-            // Iniciar emulación local de pH y Oxígeno inmediatamente
+            // Iniciar emulación de pH/Oxígeno y ciclos de inserción cada 3s y cambio de márgenes cada 1 min
             initEmulatedSensors();
 
             await loginAndConnect();
@@ -862,52 +868,104 @@
         }
 
         // ============================================================
-        //  EMULACIÓN DE SENSORES DE PH Y OXÍGENO
+        //  EMULACIÓN DE SENSORES Y LOCALSTORAGE PARA LA GRÁFICA
         // ============================================================
         function initEmulatedSensors() {
-            updateEmulatedPh();
-            updateEmulatedOxygen();
+            // Establecer valores de márgenes iniciales
+            refreshMarginalValues();
+            pushAndStoreDataPoint();
 
-            // Actualizar cada 1 minuto (60000 ms)
-            setInterval(updateEmulatedPh, 60000);
-            setInterval(updateEmulatedOxygen, 60000);
+            // 1. Cambiar los valores de los márgenes entre límites cada 1 minuto (60000 ms)
+            setInterval(() => {
+                refreshMarginalValues();
+            }, 60000);
+
+            // 2. Agregar un nuevo punto a la gráfica y guardar en localStorage cada 3 segundos (3000 ms)
+            setInterval(() => {
+                pushAndStoreDataPoint();
+            }, 3000);
         }
 
-        function updateEmulatedPh() {
-            // Valor aleatorio entre 8.0 y 8.5
-            const phVal = parseFloat((Math.random() * (8.5 - 8.0) + 8.0).toFixed(2));
-            gaugePh.refresh(phVal);
-            
-            // Actualizar UI de tarjeta pH como conectada (OK)
+        function refreshMarginalValues() {
+            // Alternar o seleccionar aleatoriamente entre los límites del margen para pH (8.0 o 8.5)
+            const phMargins = [8.0, 8.5];
+            currentEmulatedPh = phMargins[Math.floor(Math.random() * phMargins.length)];
+
+            // Alternar o seleccionar aleatoriamente entre los límites del margen para Oxígeno (4.0 o 5.0)
+            const oxyMargins = [4.0, 5.0];
+            currentEmulatedOxy = oxyMargins[Math.floor(Math.random() * oxyMargins.length)];
+        }
+
+        function pushAndStoreDataPoint() {
+            // Actualizar tacómetros visuales
+            gaugePh.refresh(currentEmulatedPh);
+            gaugeOxy.refresh(currentEmulatedOxy);
+
+            // Actualizar tarjetas de estado como conectadas y normales
             const cardPh = document.getElementById('cardPh');
             const statusPh = document.getElementById('statusPh');
             cardPh.className = "card status-ok";
             statusPh.className = "status-badge ok";
-            statusPh.innerHTML = `<span class="icon">✅</span> Normal (${phVal})`;
+            statusPh.innerHTML = `<span class="icon">✅</span> Normal (${currentEmulatedPh})`;
 
-            // Actualizar gráfico si hay datos listos
-            updateChartWithEmulated();
-        }
-
-        function updateEmulatedOxygen() {
-            // Valor aleatorio entre 4.0 y 5.0
-            const oxyVal = parseFloat((Math.random() * (5.0 - 4.0) + 4.0).toFixed(2));
-            gaugeOxy.refresh(oxyVal);
-
-            // Actualizar UI de tarjeta Oxígeno como conectada (OK)
             const cardOxy = document.getElementById('cardOxy');
             const statusOxy = document.getElementById('statusOxy');
             cardOxy.className = "card status-ok";
             statusOxy.className = "status-badge ok";
-            statusOxy.innerHTML = `<span class="icon">✅</span> Normal (${oxyVal} mg/L)`;
+            statusOxy.innerHTML = `<span class="icon">✅</span> Normal (${currentEmulatedOxy} mg/L)`;
 
-            updateChartWithEmulated();
+            // Registrar nuevo punto con la hora actual
+            const now = new Date().toLocaleTimeString();
+            
+            telemetryChart.data.labels.push(now);
+            telemetryChart.data.datasets[0].data.push(latestTempVal);
+            telemetryChart.data.datasets[1].data.push(currentEmulatedPh);
+            telemetryChart.data.datasets[2].data.push(currentEmulatedOxy);
+
+            // Limitar la cantidad máxima de puntos mostrados
+            if (telemetryChart.data.labels.length > maxChartPoints) {
+                telemetryChart.data.labels.shift();
+                telemetryChart.data.datasets.forEach(dataset => dataset.data.shift());
+            }
+
+            telemetryChart.update('none');
+            document.getElementById('chartStatus').textContent = `Actualizado: ${now}`;
+
+            // Guardar el estado actual de la gráfica en localStorage
+            saveChartToLocalStorage();
         }
 
-        function updateChartWithEmulated() {
-            // Esta función asegura que el gráfico reciba los valores actuales si la temperatura ya llegó, o los sincroniza
-            const timeStr = new Date().toLocaleTimeString();
-            // Lógica manejada dentro del procesamiento principal de telemetría o de forma independiente si se desea reflejar en el chart.
+        function saveChartToLocalStorage() {
+            const chartData = {
+                labels: telemetryChart.data.labels,
+                tempData: telemetryChart.data.datasets[0].data,
+                phData: telemetryChart.data.datasets[1].data,
+                oxyData: telemetryChart.data.datasets[2].data
+            };
+            try {
+                localStorage.setItem('scada_chart_history', JSON.stringify(chartData));
+            } catch (e) {
+                console.warn("No se pudo guardar en localStorage:", e);
+            }
+        }
+
+        function loadChartFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('scada_chart_history');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.labels && parsed.labels.length > 0) {
+                        telemetryChart.data.labels = parsed.labels;
+                        telemetryChart.data.datasets[0].data = parsed.tempData || [];
+                        telemetryChart.data.datasets[1].data = parsed.phData || [];
+                        telemetryChart.data.datasets[2].data = parsed.oxyData || [];
+                        telemetryChart.update();
+                        document.getElementById('chartStatus').textContent = 'Historial cargado de localStorage';
+                    }
+                }
+            } catch (e) {
+                console.warn("Error cargando localStorage:", e);
+            }
         }
 
         // ============================================================
@@ -952,7 +1010,6 @@
             } catch (err) {
                 console.error("Error de autenticación:", err);
                 systemHealth.wsConnected = false;
-                // Nota: No limpiamos pH y Oxy porque están emulados localmente y deben seguir activos
                 updateStatus('bad', `Error: ${err.message}`);
                 showLoading(false);
                 document.getElementById('btnReconnect').style.display = 'inline-block';
@@ -974,7 +1031,7 @@
                 reconnectAttempts = 0;
                 document.getElementById('btnReconnect').style.display = 'none';
                 showLoading(false);
-                updateStatus('online', "Sistema en línea");
+                updateStatus('online', "Sistema en línea (Temperatura TB / Sensores emulados)");
 
                 const subCmd = {
                     tsSubCmds: [
@@ -1026,16 +1083,10 @@
 
             if (tempVal !== null && !isNaN(tempVal)) {
                 systemHealth.tempValid = true;
+                latestTempVal = tempVal; // Actualizar temperatura global para el muestreo de los 3 segundos
                 gaugeTemp.refresh(tempVal);
                 updateCardStatus('Temp', tempVal, THRESHOLDS.temperature);
             }
-
-            // Usar valores actuales de los gauges emulados para el gráfico
-            const phVal = gaugePh.config.value;
-            const oxyVal = gaugeOxy.config.value;
-            const currentTemp = tempVal !== null ? tempVal : 0;
-
-            updateChartData(currentTemp, phVal, oxyVal);
         }
 
         function updateCardStatus(sensorKey, value, threshold) {
@@ -1061,23 +1112,6 @@
             statusBadge.innerHTML = `<span class="icon">${icon}</span> ${text} (${value} ${threshold.unit})`;
         }
 
-        function updateChartData(temp, ph, oxy) {
-            const now = new Date().toLocaleTimeString();
-            
-            telemetryChart.data.labels.push(now);
-            telemetryChart.data.datasets[0].data.push(temp);
-            telemetryChart.data.datasets[1].data.push(ph);
-            telemetryChart.data.datasets[2].data.push(oxy);
-
-            if (telemetryChart.data.labels.length > maxChartPoints) {
-                telemetryChart.data.labels.shift();
-                telemetryChart.data.datasets.forEach(dataset => dataset.data.shift());
-            }
-
-            telemetryChart.update('none');
-            document.getElementById('chartStatus').textContent = `Actualizado: ${now}`;
-        }
-
         function updateStatus(status, text) {
             const dot = document.getElementById('statusDot');
             const statusText = document.getElementById('statusText');
@@ -1101,7 +1135,8 @@
             telemetryChart.data.labels = [];
             telemetryChart.data.datasets.forEach(dataset => dataset.data = []);
             telemetryChart.update();
-            document.getElementById('chartStatus').textContent = 'Gráfico limpiado';
+            localStorage.removeItem('scada_chart_history');
+            document.getElementById('chartStatus').textContent = 'Gráfico limpiado y localStorage reseteado';
         }
 
         function clearAlerts() {
