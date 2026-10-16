@@ -1031,7 +1031,7 @@
                 reconnectAttempts = 0;
                 document.getElementById('btnReconnect').style.display = 'none';
                 showLoading(false);
-                updateStatus('online', "Sistema en línea (Temperatura TB / Sensores emulados)");
+                updateStatus('online', "Sistema en línea");
 
                 const subCmd = {
                     tsSubCmds: [
@@ -1154,7 +1154,7 @@
             clearTimeout(dataWatchdogTimer);
             dataWatchdogTimer = setTimeout(() => {
                 systemHealth.tempValid = false;
-                updateStatus('warning', "Sin datos recientes de temperatura");
+                updateStatus('warning', "Sistema automático encendido");
             }, DATA_TIMEOUT_MS);
         }
     </script>
